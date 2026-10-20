@@ -52,13 +52,13 @@ flowchart TD
     A --> O["Oracle Free: base objetivo"]
 ```
 
-SQLite conserva los datos propios del framework. Oracle es la base sobre la que se ejecutan las pruebas SQL. Caddy termina la conexión HTTPS y dirige las solicitudes a la API; **no forma parte del `compose.yml` versionado** en `framework-pruebas-sql/infra/production/`.
+SQLite conserva los datos propios del framework. Oracle es la base sobre la que se ejecutan las pruebas SQL. Caddy termina la conexión HTTPS y dirige las solicitudes a la API. **Aclaración (Fase 5):** el `compose.yml` versionado en `framework-pruebas-sql/infra/production/` define tres servicios (`caddy`, `api`, `oracle_db`); el equipo informa que en el servidor descrito abajo Caddy se administra aparte. Cuál de las dos configuraciones corre hoy en la VM **no se verificó** (no se consultó Azure).
 
 ## Aplicación desplegada
 
 - **URL pública:** <https://frameworksql.sytes.net/ui/>
 - **Infraestructura utilizada:** VM de Microsoft Azure, Ubuntu Server, contenedores Docker para FastAPI y Oracle, y Caddy para HTTPS.
-- **Servicios definidos en Docker Compose:** `framework_api_prod` (API y frontend) y `framework_oracle_prod` (motor Oracle). La instancia de Caddy se administra por separado en el servidor.
+- **Servicios definidos en el `compose.yml` versionado:** `caddy`, `api` (contenedor `framework_api_prod`) y `oracle_db` (contenedor `framework_oracle_prod`). Según el equipo, en el servidor Caddy se administra por separado (no verificado).
 
 La disponibilidad de la URL depende del estado de la VM, el DNS y los servicios. La validación integral desde otra computadora o red y sus capturas deben quedar registradas como evidencia del equipo; este README no sustituye esa prueba.
 
@@ -77,7 +77,7 @@ Para reconstruir y levantar esos dos servicios después de una actualización ap
 docker compose --env-file .env.production up -d --build
 ```
 
-Este comando no instala ni configura Caddy. Los valores reales se conservan en `.env.production` **solo en el servidor**, fuera del control de versiones. Consulte la [guía de producción](framework-pruebas-sql/infra/production/README.md) y verifique los servicios, el proxy y las migraciones antes de operar el despliegue. No publique credenciales, archivos `.env.production`, claves SSH ni la base SQLite.
+Con el `compose.yml` versionado este comando también levantaría el servicio `caddy`; si en el servidor Caddy ya se administra aparte, no use el comando sin revisar antes puertos 80/443. Los valores reales se conservan en `.env.production` **solo en el servidor**, fuera del control de versiones. Consulte la [guía de producción](framework-pruebas-sql/infra/production/README.md) y verifique los servicios, el proxy y las migraciones antes de operar el despliegue. No publique credenciales, archivos `.env.production`, claves SSH ni la base SQLite.
 
 ## Comprobación local del código
 
