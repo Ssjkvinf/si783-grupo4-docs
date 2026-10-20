@@ -25,3 +25,9 @@ El motor de validación se divide en 3 anillos de seguridad implementados con `s
 A fin de proteger los entornos de pruebas y producción frente a sobrecargas y errores de sintaxis que produzcan bucles, se aplican dos variables de entorno obligatorias que restringen los recursos:
 - `MAX_RESULT_ROWS` (default: 1000): Protege al backend de cuellos de botella truncando las listas de datos devueltas por los comandos `SELECT`.
 - `ORACLE_CALL_TIMEOUT_MS` (default: 10000 ms): Aplica un tiempo máximo de retardo por llamada para la conexión con el driver Oracle, cortando conexiones congeladas.
+
+## Destinos de conexión (Fase 2)
+- **Sin `dsn` libre.** Todas las rutas de ejecución (`/api/execute/raw`, `/quick`, `/test-case/{id}`, `/suite/{id}`) exigen un `connection_profile_id` **guardado**. Los campos `dsn`, `user` o cualquier otro desconocido se rechazan con 422; el ambiente (TEST, STAGING, PRODUCTION) siempre sale del perfil, nunca de la petición.
+- **Sintaxis del destino.** `host` y `service_name` solo admiten letras, números, `.`, `-` y `_`. Así no pueden insertar partes del descriptor de conexión de Oracle (`(ADDRESS=…)`, `)(`, `=`, `/`, `@`, espacios). Se valida al crear/editar el perfil y **otra vez al ejecutar**, por si el perfil se guardó antes de existir esta regla.
+- **Lista de hosts permitidos (opcional).** Si se define `ORACLE_ALLOWED_HOSTS` (por ejemplo `oracle_db,localhost`), solo esos hosts pueden usarse al crear/editar perfiles, al probar la conexión y al ejecutar. Sin la variable se permite cualquier host (uso local y académico). Para activarla en el despliegue con Docker Compose hay que añadir la variable al servicio `api`. Un perfil sigue permitiendo conectarse al host que el administrador registró: la restricción reduce el riesgo, no sustituye a un firewall ni a las cuentas de privilegios mínimos.
+- **Validación por valor.** `SCALAR_VALUE` necesita leer la fila devuelta, por lo que se rechaza en PRODUCTION (las filas se ocultan).

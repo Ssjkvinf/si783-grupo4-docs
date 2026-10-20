@@ -28,8 +28,8 @@ export async function cargarHistorial() {
             const badgeColor = h.status === 'PASS' ? 'bg-success' : (h.status === 'FAIL' ? 'bg-warning text-dark' : 'bg-danger');
             const isSuite = h.suite_id !== null;
             const tr = document.createElement("tr");
-            tr.innerHTML = `<td>${h.id}</td><td>${isSuite ? 'Suite' : 'Individual'}</td>
-                <td><small class="text-muted">C-${h.test_case_id}${isSuite?' / S-'+h.suite_id:''}</small></td>
+            tr.innerHTML = `<td>${h.id}</td><td>${isSuite ? 'Suite' : (h.test_case_id === null ? 'Rápida' : 'Individual')}</td>
+                <td><small class="text-muted">${h.test_case_id === null ? 'sin caso guardado' : 'C-' + h.test_case_id}${isSuite?' / S-'+h.suite_id:''}</small></td>
                 <td><span class="badge ${badgeColor}">${h.status}</span></td>
                 <td>${h.duration_ms}</td>
                 <td>${h.rollback_applied ? '<i class="bi bi-check-circle text-success"></i>' : '-'}</td>
@@ -46,6 +46,7 @@ export async function cargarHistorial() {
                 html: `<div class="text-start">
                     <b>Esperado:</b> ${escapeHTML(h.expected_result)}<br><b>Obtenido:</b> ${escapeHTML(h.actual_result)}
                     <br><b>Rollback:</b> ${h.rollback_applied ? 'Sí' : 'No'}
+                    <br><b>Origen:</b> ${escapeHTML(h.trigger_source || 'no registrado')}
                     ${rMsg}${eMsg}</div>`,
                 icon: h.status === 'PASS' ? 'success' : (h.status === 'FAIL' ? 'warning' : 'error')
             });

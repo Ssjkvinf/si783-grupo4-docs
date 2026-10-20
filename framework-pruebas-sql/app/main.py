@@ -14,8 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from app.core.database import engine, Base, SessionLocal
-from app.models import project, connection, test_case, suite, history
-from app.api import projects, connections, test_cases, suites, executions, history as api_history
+from app.models import project, connection, test_case, suite, history, usage
+from app.api import projects, connections, test_cases, suites, executions, demo, usage as api_usage, excel as api_excel, history as api_history
 # La creación del esquema y el Proyecto general se delega a las migraciones de Alembic (alembic upgrade head).
 
 app = FastAPI(
@@ -138,6 +138,9 @@ app.include_router(test_cases.router, prefix="/api", tags=["Casos de Prueba"])
 app.include_router(suites.router, prefix="/api", tags=["Suites de Pruebas"])
 app.include_router(executions.router, prefix="/api", tags=["Motor de Ejecución"])
 app.include_router(api_history.router, prefix="/api", tags=["Historial de Ejecuciones"])
+app.include_router(demo.router, prefix="/api", tags=["Escenario de demostración"])
+app.include_router(api_usage.router, prefix="/api", tags=["Uso del producto"])
+app.include_router(api_excel.router, prefix="/api", tags=["Excel"])
 
 # Montar frontend en /ui/
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")

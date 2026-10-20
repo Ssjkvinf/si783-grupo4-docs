@@ -4,6 +4,15 @@ Bienvenido al **Framework de Pruebas de Base de Datos SQL**. Este sistema le per
 
 ## Primeros Pasos
 
+### 0. Primera comprobación guiada (pantalla «Inicio»)
+Al entrar se abre **Inicio**, que explica en pocas líneas qué problema atiende la aplicación, qué hace y para quién está pensada, y permite hacer una primera comprobación sin visitar los demás módulos:
+1. **Conectar:** elija una conexión Oracle del proyecto activo (o cree una con *Nueva conexión*) y escriba la contraseña. La contraseña solo se usa para esa ejecución y no se guarda.
+2. **Comprobación:** elija un ejemplo o escriba un `SELECT`, y diga qué espera: una cantidad exacta de **filas** (`ROW_COUNT`), un **valor** concreto como el número que calcula un `COUNT(*)` (`SCALAR_VALUE`), o que devuelva filas / ninguna (`EXISTS`). Un `COUNT(*)` siempre devuelve 1 fila: para comparar su número use «valor». **Usted define lo esperado**; la aplicación nunca lo copia del resultado.
+3. **Ejecutar:** verá **PASS** (coincide con lo esperado), **FAIL** (la consulta se ejecutó pero no coincide) o **ERROR** (no se pudo ejecutar o evaluar), con la explicación de qué se esperaba, qué se obtuvo y por qué.
+4. **Después:** *Repetir*, *Guardar como caso de prueba* (debe confirmar el valor esperado) o *Ver en el historial*.
+
+Este recorrido solo ejecuta consultas `SELECT` y respeta el ambiente de la conexión; en PRODUCTION no se muestran las filas, solo su cantidad. Las ejecuciones quedan en el historial como «Rápida». Más abajo, «Siguiente paso» carga una suite de demostración (reglas sobre `FRAMEWORK_TEST_ITEMS`) que se ejecuta con un clic y se repite sin reconstruir los casos (ver `docs/demostracion-fase2.md`). Para `INSERT`, `UPDATE` o `DELETE` use los módulos de Casos y Suites, descritos a continuación.
+
 ### 1. Acceso al Sistema
 Si la seguridad está habilitada, al ingresar al sistema se le presentará una **Pantalla de Acceso**.
 - Ingrese el **Usuario** y la **Contraseña** proporcionados por su administrador.
@@ -31,8 +40,9 @@ Un caso de prueba es una sentencia SQL que se enviará a Oracle.
 - Acceda a **Casos de Prueba**.
 - Defina la sentencia SQL (por ejemplo, `INSERT INTO...`).
 - Elija la **Validación**:
-  - `ROW_COUNT`: Espera que un número exacto de filas sean afectadas. Útil para DML.
-  - `EXISTS`: Espera que la consulta devuelva resultados (booleano). Útil para `SELECT`.
+  - `ROW_COUNT`: compara **cuántas filas** devuelve la consulta (o cuántas afecta un DML). Un `COUNT(*)` siempre devuelve 1 fila.
+  - `SCALAR_VALUE`: compara el **valor** de la primera columna de la única fila devuelta (por ejemplo el número que calcula un `COUNT(*)`). No está disponible en PRODUCTION.
+  - `EXISTS`: espera que la consulta devuelva filas (`true`) o ninguna (`false`).
 - Ingrese el resultado esperado.
 
 ### 4. Organización en Suites

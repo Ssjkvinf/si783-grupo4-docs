@@ -8,28 +8,40 @@ export function initCasos(ejecucionFn) {
     abrirEjecucionFn = ejecucionFn;
 }
 
-export function formCaso(c = null) {
+// `prefill` (opcional) rellena un caso NUEVO desde la prueba rápida:
+// { name, description, sql_query, validation_type, expected_result, confirmar: 'texto del aviso', advertencia: 'texto' }.
+// El valor esperado es siempre el que el usuario indicó antes de ejecutar; nunca el resultado obtenido.
+export function formCaso(c = null, prefill = null) {
+    const d = c || prefill || {};
+    const confirmHtml = prefill?.confirmar ? `
+        ${prefill.advertencia ? `<div class="alert alert-warning small">${escapeHTML(prefill.advertencia)}</div>` : ''}
+        <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="f-caso-confirm">
+            <label class="form-check-label" for="f-caso-confirm">${escapeHTML(prefill.confirmar)}</label>
+        </div>` : '';
     const html = `
-        <div class="mb-3"><label class="form-label">Nombre</label><input type="text" id="f-caso-name" class="form-control" required value="${escapeHTML(c?.name||'')}"></div>
-        <div class="mb-3"><label class="form-label">Descripción</label><textarea id="f-caso-desc" class="form-control">${escapeHTML(c?.description||'')}</textarea></div>
-        <div class="mb-3"><label class="form-label">Sentencia SQL</label><textarea class="form-control font-monospace text-primary" id="f-caso-sql" rows="3" required>${escapeHTML(c?.sql_query||'')}</textarea></div>
+        <div class="mb-3"><label class="form-label">Nombre</label><input type="text" id="f-caso-name" class="form-control" required value="${escapeHTML(d.name||'')}"></div>
+        <div class="mb-3"><label class="form-label">Descripción</label><textarea id="f-caso-desc" class="form-control">${escapeHTML(d.description||'')}</textarea></div>
+        <div class="mb-3"><label class="form-label">Sentencia SQL</label><textarea class="form-control font-monospace text-primary" id="f-caso-sql" rows="3" required>${escapeHTML(d.sql_query||'')}</textarea></div>
         <div class="row">
             <div class="col-md-6 mb-3"><label class="form-label">Tipo Validación</label>
                 <select class="form-select" id="f-caso-val" required>
-                    <option value="ROW_COUNT" ${c?.validation_type==='ROW_COUNT'?'selected':''}>ROW_COUNT</option>
-                    <option value="EXISTS" ${c?.validation_type==='EXISTS'?'selected':''}>EXISTS</option>
+                    <option value="ROW_COUNT" ${d.validation_type==='ROW_COUNT'?'selected':''}>ROW_COUNT · cantidad de filas que devuelve la consulta</option>
+                    <option value="SCALAR_VALUE" ${d.validation_type==='SCALAR_VALUE'?'selected':''}>SCALAR_VALUE · valor que devuelve la consulta (p. ej. un COUNT)</option>
+                    <option value="EXISTS" ${d.validation_type==='EXISTS'?'selected':''}>EXISTS · devuelve filas (true) / ninguna (false)</option>
                 </select>
             </div>
-            <div class="col-md-6 mb-3"><label class="form-label">Resultado Esperado</label><input type="text" id="f-caso-exp" class="form-control" required value="${escapeHTML(c?.expected_result||'')}"></div>
+            <div class="col-md-6 mb-3"><label class="form-label">Resultado Esperado</label><input type="text" id="f-caso-exp" class="form-control" required value="${escapeHTML(d.expected_result||'')}"></div>
         </div>
+        ${confirmHtml}
     `;
-    abrirModalGeneral(c ? "Editar Caso" : "Nuevo Caso", html, c ? "CASE_EDIT" : "CASE_NEW", c?.id);
+    abrirModalGeneral(c ? "Editar Caso" : (prefill ? "Guardar como caso de prueba" : "Nuevo Caso"), html, c ? "CASE_EDIT" : "CASE_NEW", c?.id);
 
     const selectVal = document.getElementById("f-caso-val");
     const inputExp = document.getElementById("f-caso-exp");
 
     const updatePlaceholder = () => {
-        inputExp.placeholder = selectVal.value === 'EXISTS' ? 'true o false' : 'Ej: 1';
+        inputExp.placeholder = selectVal.value === 'EXISTS' ? 'true o false' : (selectVal.value === 'SCALAR_VALUE' ? 'Valor esperado, ej: 0' : 'Número de filas, ej: 1');
     };
     selectVal.addEventListener('change', updatePlaceholder);
     updatePlaceholder();
@@ -42,8 +54,11 @@ export async function saveCaso() {
         exp = exp.toLowerCase();
         if (exp !== 'true' && exp !== 'false') throw {status: 422, message: "Para EXISTS el valor esperado debe ser 'true' o 'false'."};
     }
-    if (v === 'ROW_COUNT' && !/^\d+$/.test(exp)) throw {status: 422, message: "Para ROW_COUNT debe ser un entero >= 0."};
-    
+    if (v === 'ROW_COUNT' && !/^\d+$/.test(exp)) throw {status: 422, message: "Para ROW_COUNT debe ser un entero >= 0 (cantidad de filas)."};
+    if (v === 'SCALAR_VALUE' && exp === '') throw {status: 422, message: "Para SCALAR_VALUE indique el valor esperado (use NULL para un valor nulo)."};
+    const confirmBox = document.getElementById("f-caso-confirm");
+    if (confirmBox && !confirmBox.checked) throw {status: 422, message: "Confirme que el resultado esperado es el correcto antes de guardar el caso."};
+
     const payload = { project_id: estado.proyectoActivoId, name: document.getElementById("f-caso-name").value, description: document.getElementById("f-caso-desc").value, sql_query: document.getElementById("f-caso-sql").value, validation_type: v, expected_result: exp };
     
     if (modalGeneralAction === "CASE_NEW") {

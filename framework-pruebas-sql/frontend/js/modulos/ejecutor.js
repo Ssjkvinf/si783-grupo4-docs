@@ -82,10 +82,15 @@ export async function procesarPasswordSubmit(e) {
             const res = await fetchAPI(`/execute/suite/${execTargetId}`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({connection_profile_id: parseInt(connId), password: pwd, confirm_staging_dml: isStagingConfirmed}) });
             getModalPwdInst().hide();
             const isPass = res.failed === 0 && res.errors === 0;
-            let detHtml = '<hr><div class="text-start" style="max-height:200px; overflow-y:auto; font-size:0.85em;">';
-            res.details.forEach(r => {
+            let detHtml = '<hr><div class="text-start" style="max-height:260px; overflow-y:auto; font-size:0.85em;">';
+            const detalle = (res.case_results && res.case_results.length) ? res.case_results : res.details;
+            detalle.forEach(r => {
                 let col = r.status === 'PASS' ? 'text-success' : (r.status === 'FAIL' ? 'text-warning' : 'text-danger');
-                detHtml += `<div class="${col}">[${r.status}] Caso #${r.test_case_id} (${r.duration_ms}ms)</div>`;
+                if (r.case_name) {
+                    detHtml += `<div class="${col} mb-1">[${r.status}] <b>${escapeHTML(r.case_name)}</b><br><span class="text-muted">${escapeHTML(r.expected_text)} → ${escapeHTML(r.obtained_text)}</span></div>`;
+                } else {
+                    detHtml += `<div class="${col}">[${r.status}] Caso #${r.test_case_id} (${r.duration_ms}ms)</div>`;
+                }
             });
             detHtml += '</div>';
             Swal.fire({

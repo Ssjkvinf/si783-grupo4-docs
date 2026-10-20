@@ -41,7 +41,7 @@
             <div class="col-md-10 main-content">
                 <!-- Topbar -->
                 <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom gap-3">
-                    <h2 class="h3 text-dark fw-bold m-0" id="titulo-seccion">Dashboard</h2>
+                    <h2 class="h3 text-dark fw-bold m-0" id="titulo-seccion">Inicio</h2>
                     <div class="d-flex flex-wrap align-items-center gap-2">
                         <label class="fw-bold text-muted">Proyecto Activo:</label>
                         <select id="select-proyecto-activo" class="form-select form-select-sm w-auto">
@@ -85,27 +85,170 @@
                     Debe seleccionar un Proyecto Activo para ver esta sección.
                 </div>
 
+                <!-- SECCIÓN: USO DEL PRODUCTO (dashboard de utilización) -->
+                <div id="section-dashboard" class="section-container hidden">
+                    <div class="card">
+                        <div class="card-body d-flex flex-wrap align-items-end gap-3">
+                            <div>
+                                <label class="form-label small mb-0" for="uso-dias">Periodo</label>
+                                <select id="uso-dias" class="form-select form-select-sm">
+                                    <option value="7">Últimos 7 días</option>
+                                    <option value="30" selected>Últimos 30 días</option>
+                                    <option value="90">Últimos 90 días</option>
+                                    <option value="365">Último año</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-label small mb-0" for="uso-alcance">Alcance</label>
+                                <select id="uso-alcance" class="form-select form-select-sm">
+                                    <option value="proyecto">Proyecto activo</option>
+                                    <option value="todos">Todos los proyectos</option>
+                                </select>
+                            </div>
+                            <div class="small text-muted flex-grow-1">Uso real del producto: ejecuciones, resultados, casos y suites más usados y origen (interfaz, CLI, GitHub Actions). Cada cifra se calcula con datos guardados y tiene su explicación.</div>
+                        </div>
+                    </div>
+                    <div id="uso-contenido"></div>
+                </div>
+
+                <!-- SECCIÓN: INICIO (recorrido guiado) -->
+                <div id="section-inicio" class="section-container hidden">
+                    <div class="card">
+                        <div class="card-body p-4">
+                            <h3 class="fw-bold mb-1">Compruebe una consulta SQL en Oracle y conserve la evidencia</h3>
+                            <p class="text-muted mb-4">Ejecute una comprobación, compárela con lo que usted espera y guarde el resultado para repetirla y revisar fallos.</p>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <h6 class="fw-bold"><i class="bi bi-question-circle text-primary me-1"></i> ¿Qué problema atiende?</h6>
+                                    <p class="small mb-0">Cuando una comprobación SQL sobre Oracle se repite, las consultas, los resultados esperados y las evidencias suelen quedar dispersos, y cuesta comparar con ejecuciones anteriores. Es una necesidad potencial que planteamos; todavía no la hemos medido en una organización.</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="fw-bold"><i class="bi bi-check2-square text-primary me-1"></i> ¿Qué hace?</h6>
+                                    <p class="small mb-0">Ejecuta su consulta, la compara con el resultado que usted indica y guarda la evidencia (consulta, esperado, obtenido, estado y fecha). Cada comprobación termina en <b>PASS</b>, <b>FAIL</b> o <b>ERROR</b>.</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="fw-bold"><i class="bi bi-people text-primary me-1"></i> ¿Para quién es?</h6>
+                                    <p class="small mb-0">Para personas que comprueban bases Oracle, como desarrolladores o analistas de pruebas. Es un prototipo académico: aún no se ha evaluado con una empresa.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="inicio-sin-proyecto" class="alert alert-warning hidden">
+                        Primero necesita un proyecto activo para guardar sus comprobaciones.
+                        <button class="btn btn-sm btn-warning ms-2" id="inicio-btn-ir-proyectos">Ir a Proyectos</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header bg-white p-3"><h6 class="m-0 fw-bold text-secondary">Haga su primera comprobación en 3 pasos</h6></div>
+                        <div class="card-body">
+                            <h6 class="fw-bold"><span class="badge bg-primary rounded-pill me-2">1</span>Conectar</h6>
+                            <div class="row g-2 mb-1 align-items-end">
+                                <div class="col-md-5">
+                                    <label class="form-label small mb-0" for="inicio-conexion">Conexión Oracle</label>
+                                    <select id="inicio-conexion" class="form-select"></select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="button" class="btn btn-outline-primary w-100" id="inicio-btn-nueva-conexion"><i class="bi bi-plus-lg"></i> Nueva conexión</button>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0" for="inicio-password">Contraseña de Oracle</label>
+                                    <input type="password" id="inicio-password" class="form-control" autocomplete="off">
+                                </div>
+                            </div>
+                            <div id="inicio-entorno" class="mb-1"></div>
+                            <p class="small text-muted">La contraseña solo se usa para ejecutar y no se guarda en la base interna ni en el navegador.</p>
+                            <hr>
+
+                            <h6 class="fw-bold"><span class="badge bg-primary rounded-pill me-2">2</span>Elegir una comprobación e indicar qué espera</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-8">
+                                    <label class="form-label small mb-0" for="inicio-plantilla">Comprobación de ejemplo (opcional)</label>
+                                    <select id="inicio-plantilla" class="form-select"></select>
+                                    <div id="inicio-plantilla-nota" class="small text-muted mt-1"></div>
+                                </div>
+                            </div>
+                            <label class="form-label small mb-0" for="inicio-sql">Consulta SELECT</label>
+                            <textarea id="inicio-sql" class="form-control font-monospace mb-1" rows="3" placeholder="SELECT ... FROM ..."></textarea>
+                            <p class="small text-muted">En este recorrido solo se ejecutan consultas SELECT. Para INSERT, UPDATE o DELETE use «Casos de prueba».</p>
+                            <div class="row g-2 mb-1">
+                                <div class="col-md-7">
+                                    <label class="form-label small mb-0" for="inicio-validacion">¿Qué quiere comprobar?</label>
+                                    <select id="inicio-validacion" class="form-select">
+                                        <option value="ROW_COUNT">Cantidad de filas que devuelve la consulta</option>
+                                        <option value="SCALAR_VALUE">Valor que devuelve la consulta (p. ej. el número de un COUNT)</option>
+                                        <option value="EXISTS">Existencia: devuelve filas / no devuelve ninguna</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small mb-0">Resultado esperado</label>
+                                    <input type="number" min="0" step="1" id="inicio-esperado-num" class="form-control" placeholder="Número de filas, ej.: 1">
+                                    <input type="text" maxlength="100" id="inicio-esperado-valor" class="form-control hidden" placeholder="Valor esperado, ej.: 0">
+                                    <select id="inicio-esperado-bool" class="form-select hidden">
+                                        <option value="">Elija una opción…</option>
+                                        <option value="true">Sí, debe devolver al menos una fila</option>
+                                        <option value="false">No, no debe devolver filas</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="inicio-aviso-count" class="alert alert-info small py-2 mt-2 mb-1 hidden">
+                                <i class="bi bi-lightbulb me-1"></i><span id="inicio-aviso-count-texto"></span>
+                                <button type="button" class="btn btn-sm btn-info ms-2" id="inicio-btn-usar-valor">Comparar el valor</button>
+                            </div>
+                            <hr>
+
+                            <h6 class="fw-bold"><span class="badge bg-primary rounded-pill me-2">3</span>Ejecutar y entender el resultado</h6>
+                            <div id="inicio-alerta" class="alert alert-danger py-2 hidden" role="alert"></div>
+                            <button type="button" class="btn btn-primary btn-lg" id="inicio-btn-ejecutar">
+                                <i class="bi bi-play-fill"></i> <span id="inicio-btn-ejecutar-texto">Ejecutar comprobación</span>
+                                <span id="inicio-btn-ejecutar-spinner" class="spinner-border spinner-border-sm hidden"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="inicio-resultado" class="hidden"></div>
+
+                    <div class="card">
+                        <div class="card-header bg-white p-3"><h6 class="m-0 fw-bold text-secondary">Siguiente paso: configure una vez y repita cuando quiera</h6></div>
+                        <div class="card-body">
+                            <p class="small">Una <b>suite</b> agrupa reglas sobre sus datos (por ejemplo: «hay 5 productos», «no hay productos sin nombre», «existe el producto 3»). Se crea una sola vez y después se ejecuta de nuevo con un clic; cada ejecución queda en el historial. Los ejemplos usan la tabla de demostración <code>FRAMEWORK_TEST_ITEMS</code> y sus datos (ver <code>docs/demostracion-fase2.md</code>).</p>
+                            <div id="inicio-demo-cargar">
+                                <button type="button" class="btn btn-outline-primary" id="inicio-btn-cargar-demo"><i class="bi bi-collection me-1"></i>Cargar las suites de demostración</button>
+                                <span class="small text-muted ms-2">Solo crea casos y suites en esta aplicación; no modifica Oracle.</span>
+                            </div>
+                            <div id="inicio-demo-listo" class="hidden">
+                                <p class="small text-muted mb-2">Use la conexión y la contraseña del paso 1.</p>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="button" class="btn btn-primary" id="inicio-btn-suite-reglas"><i class="bi bi-play-fill me-1"></i>Ejecutar la suite de reglas</button>
+                                    <button type="button" class="btn btn-outline-secondary" id="inicio-btn-suite-ejemplos"><i class="bi bi-bug me-1"></i>Ver un ejemplo de FAIL y ERROR</button>
+                                </div>
+                            </div>
+                            <div id="inicio-suite-resultado" class="mt-3 hidden"></div>
+                        </div>
+                    </div>
+
+                    <p class="small text-muted">Más herramientas en el menú lateral: guardar y agrupar comprobaciones (Casos y Suites), revisar ejecuciones anteriores (Historial) y administrar proyectos y conexiones.</p>
+                </div>
+
                 <!-- SECCIÓN: AYUDA -->
                 <div id="section-ayuda" class="section-container hidden">
                     <div class="card">
                         <div class="card-header bg-white p-3"><h6 class="m-0 fw-bold text-secondary">Guía de Uso Rápido</h6></div>
                         <div class="card-body">
-                            <p>Bienvenido al <b>Framework de Pruebas de Base de Datos SQL</b>.</p>
-                            <p>Flujo principal de trabajo:</p>
+                            <p>Para empezar, vaya a <b>Inicio</b> y haga su primera comprobación:</p>
                             <ol>
-                                <li><b>Proyecto:</b> Seleccione o cree un proyecto activo en el selector superior.</li>
-                                <li><b>Perfil Oracle:</b> Configure un perfil de conexión. No guardaremos su contraseña por seguridad.</li>
-                                <li><b>Casos:</b> Escriba las sentencias DML (INSERT, UPDATE, DELETE) e indique la validación esperada (ROW_COUNT o EXISTS).</li>
-                                <li><b>Suites:</b> Agrupe los casos en una Suite para ejecutarlos en ráfaga.</li>
-                                <li><b>Ejecución:</b> Inicie la prueba. Si modifica datos, se aplicará <code>ROLLBACK</code> automáticamente.</li>
-                                <li><b>Historial:</b> Revise detalladamente si los resultados obtenidos coinciden con lo esperado.</li>
+                                <li><b>Conectar:</b> elija una conexión Oracle (o cree una) y escriba la contraseña. No se guarda.</li>
+                                <li><b>Comprobación:</b> elija un ejemplo o escriba un <code>SELECT</code>, e indique qué espera que devuelva.</li>
+                                <li><b>Ejecutar:</b> verá si pasó (<b>PASS</b>), no coincidió (<b>FAIL</b>) o no pudo evaluarse (<b>ERROR</b>), y por qué.</li>
+                                <li><b>Después:</b> guárdela como caso de prueba (confirmando usted el valor esperado) o repítala.</li>
                             </ol>
+                            <p class="mb-1"><b>Módulos avanzados</b> (menú lateral): Proyectos, Conexiones Oracle, Casos de prueba, Suites (grupos de casos) e Historial de ejecuciones.</p>
                             <div class="alert alert-info mt-3">
-                                <i class="bi bi-info-circle-fill me-2"></i> <b>Seguridad:</b> La ejecución de operaciones DML dependerá del entorno configurado en su conexión:
-                                <ul>
-                                    <li><b>TEST:</b> DML con rollback.</li>
-                                    <li><b>STAGING:</b> confirmación obligatoria y rollback.</li>
-                                    <li><b>PRODUCTION:</b> solo SELECT con usuario Oracle de lectura.</li>
+                                <i class="bi bi-info-circle-fill me-2"></i> <b>Seguridad:</b> las reglas dependen del ambiente de la conexión:
+                                <ul class="mb-0">
+                                    <li><b>TEST:</b> los casos con INSERT, UPDATE o DELETE se ejecutan y luego se revierten (rollback).</li>
+                                    <li><b>STAGING:</b> igual que TEST, pero pide confirmación para ejecutar DML.</li>
+                                    <li><b>PRODUCTION:</b> solo SELECT, con una cuenta Oracle de solo lectura; no se muestran las filas.</li>
                                 </ul>
                             </div>
                         </div>
@@ -153,7 +296,12 @@
                     <div class="card">
                         <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center">
                             <h6 class="m-0 fw-bold text-secondary">Casos de Prueba (Proyecto Activo)</h6>
-                            <button class="btn btn-primary btn-sm" id="btn-nuevo-caso"><i class="bi bi-plus-lg"></i> Nuevo</button>
+                            <div class="d-flex flex-wrap gap-1">
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-plantilla-excel" title="Descargar la plantilla de Excel con instrucciones y ejemplos"><i class="bi bi-file-earmark-excel"></i> Plantilla</button>
+                                <button class="btn btn-outline-success btn-sm" id="btn-importar-excel" title="Importar casos desde un archivo .xlsx (se valida antes de guardar)"><i class="bi bi-upload"></i> Importar Excel</button>
+                                <button class="btn btn-outline-success btn-sm" id="btn-exportar-casos" title="Exportar los casos del proyecto activo a .xlsx"><i class="bi bi-download"></i> Exportar</button>
+                                <button class="btn btn-primary btn-sm" id="btn-nuevo-caso"><i class="bi bi-plus-lg"></i> Nuevo</button>
+                            </div>
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
@@ -202,6 +350,7 @@
                                 </div>
                                 <div class="col-md-2">
                                     <button class="btn btn-secondary btn-sm w-100" id="btn-filtrar-historial"><i class="bi bi-search"></i> Filtrar</button>
+                                    <button class="btn btn-outline-success btn-sm w-100 mt-1" id="btn-exportar-resultados" title="Exportar a Excel los resultados con los filtros de estado y suite"><i class="bi bi-file-earmark-excel"></i> Exportar a Excel</button>
                                 </div>
                             </div>
                         </div>

@@ -19,7 +19,7 @@ class ExecutionHistory(Base):
     connection_profile_id = Column(Integer, ForeignKey("connection_profiles.id"), nullable=True)
     
     status = Column(String, index=True, nullable=False)  # PASS, FAIL, ERROR
-    executed_at = Column(DateTime(timezone=True), default=get_utc_now)
+    executed_at = Column(DateTime(timezone=True), default=get_utc_now, index=True)
     duration_ms = Column(Float, nullable=False)
     
     statement_type = Column(String, nullable=True)
@@ -31,6 +31,12 @@ class ExecutionHistory(Base):
     rollback_applied = Column(Boolean, default=False)
     rollback_error = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
+
+    # Origen de la ejecución: UI (módulos Casos/Suites), INICIO (recorrido guiado), CLI o GITHUB_ACTIONS.
+    # NULL = registro anterior a la Fase 4 (origen no registrado).
+    trigger_source = Column(String, nullable=True, index=True)
+    # Identifica una corrida (todas las filas de una misma ejecución de suite o de la CLI comparten run_id).
+    run_id = Column(String, nullable=True, index=True)
 
     project = relationship("Project", back_populates="execution_histories")
     test_case = relationship("TestCase", back_populates="execution_histories")

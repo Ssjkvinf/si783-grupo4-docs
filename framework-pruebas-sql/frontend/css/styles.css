@@ -2,6 +2,13 @@ body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 .sidebar { height: 100vh; position: sticky; top: 0; background-color: #1a1d20; color: #fff; padding-top: 20px; z-index: 1040; }
 .sidebar a { color: #adb5bd; text-decoration: none; padding: 12px 20px; display: block; transition: 0.3s; cursor: pointer; }
 .sidebar a:hover, .sidebar a.active { color: #fff; background-color: #0d6efd; border-left: 4px solid #fff; }
+.nav-section-label { color: #6c757d; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; padding: 14px 20px 4px; }
+.uso-def { font-size: 0.75rem; color: #6c757d; margin-top: 2px; }
+.uso-barras { display: flex; align-items: flex-end; gap: 2px; height: 160px; border-bottom: 1px solid #dee2e6; }
+.uso-col { flex: 1 1 0; min-width: 2px; height: 100%; display: flex; align-items: flex-end; }
+.uso-pila { width: 100%; height: 100%; display: flex; flex-direction: column-reverse; justify-content: flex-start; }
+.uso-seg { width: 100%; min-height: 0; }
+.uso-resultados { display: flex; height: 22px; border-radius: 6px; overflow: hidden; background: #e9ecef; }
 .main-content { padding: 2rem; min-height: 100vh; }
 .card { border: none; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.04); margin-bottom: 20px; }
 .hidden { display: none !important; }

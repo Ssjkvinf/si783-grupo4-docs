@@ -106,6 +106,7 @@ class TargetDatabaseExecutor:
         cursor = None
         exec_error = None
         fetched_rows = []
+        columns: List[str] = []
         row_count = 0
         query_success = False
 
@@ -117,6 +118,10 @@ class TargetDatabaseExecutor:
             if stmt_type == "SELECT":
                 fetched_rows = cursor.fetchmany(self.max_rows)
                 row_count = len(fetched_rows)
+                try:
+                    columns = [str(d[0]) for d in (cursor.description or [])]
+                except Exception:
+                    columns = []
                 query_success = True
                 if self.environment_type == "PRODUCTION":
                     fetched_rows = []
@@ -171,6 +176,7 @@ class TargetDatabaseExecutor:
                 "success": True,
                 "statement_type": stmt_type,
                 "rows": fetched_rows,
+                "columns": columns,
                 "rowcount": row_count,
                 "message": f"Consulta SELECT ejecutada exitosamente. {row_count} filas recuperadas.",
                 "error_message": None,

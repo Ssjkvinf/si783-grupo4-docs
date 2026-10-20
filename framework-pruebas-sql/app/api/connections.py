@@ -11,6 +11,7 @@ from app.models import connection as models_conn
 from app.models import project as models_project
 from app.models import schemas
 from app.engine.executor import TargetDatabaseExecutor
+from app.security.target_policy import ensure_host_allowed, ensure_valid_target
 
 router = APIRouter()
 
@@ -20,6 +21,11 @@ def create_connection_profile(profile: schemas.ConnectionProfileCreate, db: Sess
     project = db.query(models_project.Project).filter(models_project.Project.id == profile.project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail=f"Proyecto ID {profile.project_id} no encontrado.")
+
+    try:
+        ensure_host_allowed(profile.host)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
     db_profile = models_conn.ConnectionProfile(**profile.model_dump())
     db.add(db_profile)
@@ -57,6 +63,11 @@ def update_connection_profile(connection_id: int, profile_data: schemas.Connecti
         raise HTTPException(status_code=404, detail="Perfil de conexión no encontrado.")
 
     update_dict = profile_data.model_dump(exclude_unset=True)
+    if "host" in update_dict:
+        try:
+            ensure_host_allowed(update_dict["host"])
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
     for key, value in update_dict.items():
         setattr(profile, key, value)
 
@@ -94,6 +105,7 @@ def test_connection_profile(
         raise HTTPException(status_code=404, detail="Perfil de conexión no encontrado.")
 
     try:
+        ensure_valid_target(profile.host, profile.service_name)
         dsn = oracledb.makedsn(profile.host, profile.port, service_name=profile.service_name)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al construir el DSN: {str(e)}")
