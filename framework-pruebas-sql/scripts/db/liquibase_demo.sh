@@ -44,7 +44,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHANGELOG_DIR="$(cd "$HERE/../../infra/oracle/liquibase" && pwd)"
 
 mkdir -p "$OUT"
-export LIQUIBASE_COMMAND_URL="$LB_JDBC_URL" LIQUIBASE_COMMAND_USERNAME="$LB_USER" LIQUIBASE_COMMAND_PASSWORD="$LB_PASSWORD"
+export LIQUIBASE_COMMAND_URL="$LB_JDBC_URL" LIQUIBASE_COMMAND_USERNAME="$LB_USER" LIQUIBASE_COMMAND_PASSWORD="${LB_PASSWORD}"
 export MSYS_NO_PATHCONV=1   # Git Bash en Windows: no reescribir rutas del contenedor
 
 lb() {

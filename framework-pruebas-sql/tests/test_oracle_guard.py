@@ -120,9 +120,14 @@ def _liquibase(tmp_path, jdbc, extra_env):
     env = {k: v for k, v in os.environ.items() if k not in (CONFIRM_VAR, "GITHUB_ACTIONS", "LB_CONTEXTS")}
     env.update({"LB_NETWORK": "red_inexistente", "LB_JDBC_URL": jdbc, "LB_USER": "u", "LB_PASSWORD": "valor_ficticio", "PATH": str(tmp_path) + os.pathsep + env.get("PATH", "")})
     # un «docker» falso que deja marca: si el script llega a usarlo, la guardia falló
-    (tmp_path / "docker").write_text('#!/bin/sh\necho llamado >> "$DOCKER_LOG"\nexit 9\n', encoding="utf-8", newline="\n")
+    fake = tmp_path / "docker"
+    fake.write_text('#!/bin/sh\necho llamado >> "$DOCKER_LOG"\nexit 9\n', encoding="utf-8", newline="\n")
+    os.chmod(fake, 0o755)    # en Linux un archivo sin permiso de ejecución se ignora y bash usaría el docker REAL del ejecutor de CI
     env["DOCKER_LOG"] = str(tmp_path / "docker.log")
     env.update(extra_env)
+    # diagnóstico: el «docker» que verá el script tiene que ser el falso; si no, las pruebas no demostrarían nada
+    quien = subprocess.run([bash, "-c", "command -v docker"], env=env, capture_output=True, text=True, timeout=30).stdout.strip()
+    assert tmp_path.name in quien, f"el docker falso no quedó primero en PATH (se usaría otro): {quien!r}"
     r = subprocess.run([bash, "scripts/db/liquibase_demo.sh", str(tmp_path / "salida")], cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", timeout=60)
     return r, tmp_path / "docker.log"
 

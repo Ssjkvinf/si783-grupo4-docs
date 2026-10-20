@@ -18,6 +18,8 @@ on:
       - "framework-pruebas-sql/checks/**"
       - "framework-pruebas-sql/app/cli.py"
       - "framework-pruebas-sql/app/services/excel_io.py"
+      - "framework-pruebas-sql/scripts/ci/**"
+      - "framework-pruebas-sql/scripts/db/**"
       - ".github/workflows/sql-checks.yml"
   workflow_dispatch:
     inputs:
@@ -95,12 +97,8 @@ jobs:
           docker run -d --name fw_chk_oracle --network fw_chk_net -p 127.0.0.1:1521:1521 \
             -e ORACLE_PASSWORD="$ORACLE_SYS_PWD" -e APP_USER=FRAMEWORK_TEST -e APP_USER_PASSWORD="$FRAMEWORK_TEST_PASSWORD" \
             "$ORACLE_CI_IMAGE"
-          for i in $(seq 1 90); do
-            if [ "$(docker inspect --format '{{.State.Health.Status}}' fw_chk_oracle 2>/dev/null)" = "healthy" ]; then echo "Oracle listo"; exit 0; fi
-            sleep 5
-          done
-          docker logs --tail 50 fw_chk_oracle
-          echo "::error::Oracle no estuvo listo a tiempo"; exit 1
+          # Espera con un inicio de sesión real (el contenedor no define healthcheck); diagnóstico si falla. 900 s por defecto.
+          bash framework-pruebas-sql/scripts/ci/wait_for_oracle.sh fw_chk_oracle
 
       - name: Crear la tabla y los datos de demostración (Liquibase)
         working-directory: framework-pruebas-sql

@@ -16,6 +16,7 @@ on:
       - "framework-pruebas-sql/app/models/**"
       - "framework-pruebas-sql/infra/oracle/**"
       - "framework-pruebas-sql/scripts/db/**"
+      - "framework-pruebas-sql/scripts/ci/**"
       - ".github/workflows/db-objects.yml"
   pull_request:
     branches: [ "main" ]
@@ -24,6 +25,7 @@ on:
       - "framework-pruebas-sql/app/models/**"
       - "framework-pruebas-sql/infra/oracle/**"
       - "framework-pruebas-sql/scripts/db/**"
+      - "framework-pruebas-sql/scripts/ci/**"
       - ".github/workflows/db-objects.yml"
   workflow_dispatch:
 
@@ -93,13 +95,8 @@ jobs:
           docker run -d --name fw_ci_oracle --network fw_ci_net -p 127.0.0.1:1521:1521 \
             -e ORACLE_PASSWORD="$ORACLE_SYS_PWD" -e APP_USER=FRAMEWORK_TEST -e APP_USER_PASSWORD="$FRAMEWORK_TEST_PASSWORD" \
             "$ORACLE_CI_IMAGE"
-          echo "Esperando a Oracle…"
-          for i in $(seq 1 90); do
-            if [ "$(docker inspect --format '{{.State.Health.Status}}' fw_ci_oracle 2>/dev/null)" = "healthy" ]; then echo "Oracle listo"; exit 0; fi
-            sleep 5
-          done
-          docker logs --tail 50 fw_ci_oracle
-          echo "::error::Oracle no estuvo listo a tiempo"; exit 1
+          # Espera con un inicio de sesión real (el contenedor no define healthcheck); diagnóstico si falla. 900 s por defecto.
+          bash scripts/ci/wait_for_oracle.sh fw_ci_oracle
 
       - name: Privilegios que necesita Liquibase en FRAMEWORK_TEST
         run: |

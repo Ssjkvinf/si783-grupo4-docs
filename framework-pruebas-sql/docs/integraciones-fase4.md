@@ -38,7 +38,7 @@ Interfaz: sección **Casos** → «Plantilla Excel», «Importar Excel», «Expo
 ```bash
 python -m app.cli init-db --db checks.sqlite
 python -m app.cli import-excel checks/reglas_demo.xlsx --project Demo --create-project --db checks.sqlite
-export FW_ORACLE_PASSWORD='<la clave de la cuenta de prueba>'   # nunca como argumento
+export FW_ORACLE_PASSWORD='<clave-ficticia-reemplace-por-la-de-su-cuenta-de-prueba>'   # nunca como argumento
 python -m app.cli run --project Demo --suite "Reglas de calidad (demo)" \
     --host 127.0.0.1 --port 1521 --service FREEPDB1 --user FRAMEWORK_TEST --env TEST \
     --junit reporte.xml --markdown reporte.md --json reporte.json --db checks.sqlite

@@ -1,0 +1,3 @@
+# Dependencias SOLO para ejecutar las pruebas en CI y en local (no entran en la imagen de la aplicación).
+# Sin PyYAML, las pruebas que leen los workflows, el compose y mkdocs.yml se OMITEN en silencio (pytest.importorskip).
+PyYAML==6.0.3
