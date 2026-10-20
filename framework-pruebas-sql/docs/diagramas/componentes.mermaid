@@ -1,28 +1,51 @@
-graph TD
-    subgraph Frontend Client
-        UI[Navegador (HTML/CSS/JS)]
+%% GENERADO por scripts/docs/gen_docs.py. No editar a mano.
+%% Dependencias entre paquetes, leídas de los import de app/ y alembic/env.py (se omiten FastAPI y, salvo en app.core y alembic, SQLAlchemy por legibilidad).
+flowchart LR
+    nav["Navegador: frontend/ (15 archivos JS)"]
+    subgraph APP["Aplicación Python (app/)"]
+        app_api["app.api"]
+        app_cli["app.cli"]
+        app_core["app.core"]
+        app_engine["app.engine"]
+        app_main["app.main"]
+        app_models["app.models"]
+        app_security["app.security"]
+        app_services["app.services"]
     end
-
-    subgraph Backend Server (Uvicorn)
-        FastAPI[FastAPI Application]
-        Auth[Cookie Auth Middleware]
-        Routers[API Routers]
-        ExecService[Execution Service]
-        Security[SQL Security Engine / sqlparse]
-        Alembic[Alembic Migrations]
-    end
-
-    subgraph Data Stores
-        SQLite[(Volumen: framework_data)]
-        Oracle[(Contenedor: oracle_db)]
-    end
-
-    UI -- HTTP REST --> Auth
-    Auth --> FastAPI
-    FastAPI --> Routers
-    Routers --> ExecService
-    ExecService --> Security
-    Routers -- CRUD --> SQLite
-    Security -- Validation --> Oracle
-    ExecService -- oracledb --> Oracle
-    Alembic -- schema updates --> SQLite
+    alembic["alembic/ (migraciones)"]
+    ext_openpyxl[("openpyxl (Excel)")]
+    ext_oracle[("Oracle objetivo (python-oracledb)")]
+    ext_sqlite[("SQLite interna (SQLAlchemy)")]
+    ext_sqlparse[("sqlparse")]
+    nav -->|"HTTP /api"| app_main
+    app_main -->|"sirve /ui"| nav
+    alembic --> app_core
+    alembic --> app_models
+    app_api --> app_core
+    app_api --> app_engine
+    app_api --> app_models
+    app_api --> app_security
+    app_api --> app_services
+    app_cli --> app_core
+    app_cli --> app_engine
+    app_cli --> app_models
+    app_cli --> app_security
+    app_cli --> app_services
+    app_engine --> app_security
+    app_main --> app_api
+    app_main --> app_core
+    app_main --> app_models
+    app_models --> app_core
+    app_models --> app_security
+    app_services --> app_engine
+    app_services --> app_models
+    app_services --> app_security
+    alembic -.-> ext_sqlite
+    app_api -.-> ext_oracle
+    app_cli -.-> ext_oracle
+    app_core -.-> ext_sqlite
+    app_engine -.-> ext_oracle
+    app_engine -.-> ext_sqlparse
+    app_security -.-> ext_sqlparse
+    app_services -.-> ext_openpyxl
+    app_services -.-> ext_oracle

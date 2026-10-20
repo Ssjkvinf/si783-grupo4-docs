@@ -1,0 +1,6 @@
+# Dependencias SOLO para generar y construir la documentación (no se instalan en la imagen de la aplicación).
+# Además hacen falta las de requirements.txt (el generador importa app/).
+mkdocs==1.6.1
+mkdocs-material==9.5.50
+mkdocstrings[python]==0.27.0
+PyYAML==6.0.3

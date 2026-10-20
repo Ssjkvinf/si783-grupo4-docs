@@ -1,0 +1,103 @@
+# GENERADO por scripts/docs/gen_docs.py (la navegación sale de los módulos de app/). Para cambiar la parte fija edite NAV_FIJA en ese script.
+site_name: Framework de pruebas SQL — documentación técnica
+site_description: Documentación generada desde el repositorio (clases, métodos, propiedades, diccionario de datos y diagramas).
+docs_dir: docs
+site_dir: site
+theme:
+  name: material
+  language: es
+  font: false
+markdown_extensions:
+  - tables
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: google
+            show_if_no_docstring: true
+            filters: ['!^_']
+validation:
+  omitted_files: info
+  absolute_links: info
+  unrecognized_links: info
+  links:
+    not_found: info
+nav:
+  - Inicio: index.md
+  - Informes (fuentes editables):
+      - Cómo usar estas fuentes: informes/LEEME.md
+      - Matriz de afirmaciones FD01–FD04: informes/matriz-afirmaciones.md
+      - Corrección de FD03 y FD04 (Fase 1): correccion-fd03-fd04.md
+      - FD01 (parche): informes/FD01-parche.md
+      - FD02 (parche): informes/FD02-parche.md
+      - FD03 (fuente corregida): informes/FD03-fuente-corregida.md
+      - FD04 (fuente corregida): informes/FD04-fuente-corregida.md
+      - FD05 Informe final (borrador): informes/FD05-informe-final.md
+  - Problema y objetivos: problema-y-objetivos.md
+  - Estándar de programación: estandar-programacion.md
+  - Manuales:
+      - Manual de usuario: manual-usuario.md
+      - Manual técnico: manual-tecnico.md
+      - Arquitectura (resumen): arquitectura.md
+      - Matriz de trazabilidad: matriz-trazabilidad.md
+      - Referencia SRS y SAD: referencia-srs-sad.md
+      - Verificación: verificacion.md
+      - Instalación local: instalacion-local.md
+      - Despliegue: despliegue.md
+      - Seguridad: seguridad.md
+      - Respaldo y restauración: respaldo-restauracion.md
+      - Operación (Fase 3): operacion-fase3.md
+      - Integraciones (Fase 4): integraciones-fase4.md
+  - Documentación generada:
+      - Diccionario de datos: generated/diccionario-datos.md
+      - Diagramas: generated/diagramas.md
+      - Endpoints de la API: generated/api-endpoints.md
+      - Cobertura de docstrings: generated/cobertura-docstrings.md
+  - Demostración:
+      - Guion y preguntas del jurado: demostracion-sustentacion.md
+      - Demostración de la Fase 2: demostracion-fase2.md
+      - Protocolo de usabilidad: protocolo-usabilidad.md
+      - Evaluación del reto de integración: evaluacion-reto-integracion.md
+      - Publicación en GitHub: publicacion-github.md
+      - Tareas para Gerald: tareas-gerald.md
+  - Referencia del código:
+      - Índice: referencia/index.md
+      - app.api.connections: referencia/api_connections.md
+      - app.api.demo: referencia/api_demo.md
+      - app.api.excel: referencia/api_excel.md
+      - app.api.executions: referencia/api_executions.md
+      - app.api.history: referencia/api_history.md
+      - app.api.projects: referencia/api_projects.md
+      - app.api.suites: referencia/api_suites.md
+      - app.api.test_cases: referencia/api_test_cases.md
+      - app.api.usage: referencia/api_usage.md
+      - app.cli: referencia/cli.md
+      - app.core.database: referencia/core_database.md
+      - app.engine.executor: referencia/engine_executor.md
+      - app.engine.validator: referencia/engine_validator.md
+      - app.main: referencia/main.md
+      - app.models.connection: referencia/models_connection.md
+      - app.models.history: referencia/models_history.md
+      - app.models.project: referencia/models_project.md
+      - app.models.schemas: referencia/models_schemas.md
+      - app.models.suite: referencia/models_suite.md
+      - app.models.test_case: referencia/models_test_case.md
+      - app.models.usage: referencia/models_usage.md
+      - app.security.sql_policy: referencia/security_sql_policy.md
+      - app.security.target_policy: referencia/security_target_policy.md
+      - app.services.demo_scenario: referencia/services_demo_scenario.md
+      - app.services.excel_io: referencia/services_excel_io.md
+      - app.services.execution_service: referencia/services_execution_service.md
+      - app.services.project_service: referencia/services_project_service.md
+      - app.services.usage_service: referencia/services_usage_service.md

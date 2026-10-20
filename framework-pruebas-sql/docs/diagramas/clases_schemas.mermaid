@@ -1,0 +1,207 @@
+%% GENERADO por scripts/docs/gen_docs.py. No editar a mano.
+%% Clases Pydantic de entrada y salida de la API (app/models/schemas.py)
+classDiagram
+    class ValidationTypeEnum {
+    }
+    class EnvironmentTypeEnum {
+    }
+    class ProjectCreate {
+        +str name
+        +Optional~str~ description
+        +validate_name(v) str
+    }
+    class ProjectUpdate {
+        +Optional~str~ name
+        +Optional~str~ description
+        +validate_name(v) Optional~str~
+    }
+    class ProjectResponse {
+        +int id
+        +datetime created_at
+        +datetime updated_at
+    }
+    class ConnectionProfileCreate {
+        +int project_id
+        +str name
+        +str engine
+        +str host
+        +int port
+        +str service_name
+        +str username
+        +EnvironmentTypeEnum environment_type
+        +validate_non_empty(v) str
+        +validate_host(v) str
+        +validate_service(v) str
+        +validate_engine(v) str
+    }
+    class ConnectionProfileUpdate {
+        +Optional~str~ name
+        +Optional~str~ host
+        +Optional~int~ port
+        +Optional~str~ service_name
+        +Optional~str~ username
+        +Optional~EnvironmentTypeEnum~ environment_type
+        +validate_non_empty(v) Optional~str~
+        +validate_host(v) Optional~str~
+        +validate_service(v) Optional~str~
+    }
+    class ConnectionProfileResponse {
+        +int id
+        +int project_id
+        +str name
+        +str engine
+        +str host
+        +int port
+        +str service_name
+        +str username
+        +str environment_type
+        +datetime created_at
+        +datetime updated_at
+    }
+    class TestConnectionRequest {
+        +str password
+    }
+    class TestCaseCreate {
+        +Optional~int~ project_id
+        +str name
+        +Optional~str~ description
+        +str sql_query
+        +ValidationTypeEnum validation_type
+        +str expected_result
+        +validate_text(v) str
+        +validate_expected(v, info) str
+    }
+    class TestCaseUpdate {
+        +Optional~str~ name
+        +Optional~str~ description
+        +Optional~str~ sql_query
+        +Optional~ValidationTypeEnum~ validation_type
+        +Optional~str~ expected_result
+        +validate_text(v) Optional~str~
+    }
+    class TestCaseResponse {
+        +int id
+        +int project_id
+    }
+    class TestSuiteCreate {
+        +Optional~int~ project_id
+        +str name
+        +Optional~str~ description
+        +validate_name(v) str
+    }
+    class TestSuiteUpdate {
+        +Optional~str~ name
+        +Optional~str~ description
+        +validate_name(v) Optional~str~
+    }
+    class TestSuiteResponse {
+        +int id
+        +int project_id
+        +List~TestCaseResponse~ test_cases
+    }
+    class DBCredentials {
+        +str password
+        +int connection_profile_id
+        +Optional~EnvironmentTypeEnum~ environment_type
+        +bool confirm_staging_dml
+    }
+    class ExecutionRequest {
+        +str sql_query
+    }
+    class TestCaseExecutionRequest {
+    }
+    class SuiteExecutionRequest {
+    }
+    class ExecutionResponse {
+        +bool success
+        +str statement_type
+        +List~Any~ rows
+        +int rowcount
+        +List~Any~ data
+        +str message
+        +Optional~str~ error_message
+        +bool rollback_applied
+        +Optional~str~ rollback_error
+    }
+    class QuickExecutionRequest {
+        +int connection_profile_id
+        +str password
+        +str sql_query
+        +ValidationTypeEnum validation_type
+        +str expected_result
+        +validate_text(v) str
+        +validate_expected_for_type()
+    }
+    class QuickExecutionResponse {
+        +int history_id
+        +str status
+        +str environment_type
+        +str connection_name
+        +str sql_query
+        +str validation_type
+        +str expected_result
+        +str expected_text
+        +str obtained_text
+        +str reason
+        +List~str~ columns
+        +Optional~str~ obtained_value
+        +List rows
+        +int rows_shown
+        +bool rows_truncated
+        +bool rows_hidden
+        +int rowcount
+        +float duration_ms
+        +Optional~str~ error_message
+    }
+    class HistoryResponse {
+        +int id
+        +int project_id
+        +Optional~int~ test_case_id
+        +Optional~int~ suite_id
+        +Optional~int~ connection_profile_id
+        +str status
+        +datetime executed_at
+        +float duration_ms
+        +Optional~str~ statement_type
+        +str executed_sql
+        +Optional~str~ validation_type
+        +Optional~str~ expected_result
+        +Optional~str~ actual_result
+        +int rowcount
+        +bool rollback_applied
+        +Optional~str~ rollback_error
+        +Optional~str~ error_message
+        +Optional~str~ trigger_source
+        +Optional~str~ run_id
+    }
+    class SuiteCaseResult {
+        +int history_id
+        +int test_case_id
+        +str case_name
+        +str status
+        +Optional~str~ validation_type
+        +Optional~str~ expected_result
+        +str expected_text
+        +str obtained_text
+        +str reason
+        +float duration_ms
+        +Optional~str~ error_message
+    }
+    class SuiteExecutionSummary {
+        +int suite_id
+        +str suite_name
+        +int total_tests
+        +int passed
+        +int failed
+        +int errors
+        +float total_duration_ms
+        +Optional~str~ run_id
+        +List~HistoryResponse~ details
+        +List~SuiteCaseResult~ case_results
+    }
+    ProjectCreate <|-- ProjectResponse
+    TestCaseCreate <|-- TestCaseResponse
+    TestSuiteCreate <|-- TestSuiteResponse
+    DBCredentials <|-- ExecutionRequest
+    DBCredentials <|-- TestCaseExecutionRequest
+    DBCredentials <|-- SuiteExecutionRequest

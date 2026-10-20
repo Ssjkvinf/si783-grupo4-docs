@@ -1,0 +1,73 @@
+name: Documentación técnica (Pages)
+
+# Construye el sitio MkDocs (clases, métodos y propiedades desde los docstrings, diccionario, diagramas, informes)
+# y lo publica en GitHub Pages SOLO en push a main o con ejecución manual. En pull_request solo construye.
+# Requisitos manuales, una vez: en Settings → Pages elegir «Source: GitHub Actions».
+# ESTE FLUJO NO SE HA EJECUTADO EN GITHUB y NO SE PUBLICÓ NADA: solo se construyó el sitio en local con `mkdocs build --strict`.
+
+on:
+  pull_request:
+    paths:
+      - "framework-pruebas-sql/app/**"
+      - "framework-pruebas-sql/docs/**"
+      - "framework-pruebas-sql/mkdocs.yml"
+      - "framework-pruebas-sql/requirements-docs.txt"
+      - ".github/workflows/pages.yml"
+  push:
+    branches: [ "main" ]
+    paths:
+      - "framework-pruebas-sql/app/**"
+      - "framework-pruebas-sql/docs/**"
+      - "framework-pruebas-sql/mkdocs.yml"
+      - "framework-pruebas-sql/requirements-docs.txt"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+    working-directory: ./framework-pruebas-sql
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            framework-pruebas-sql/requirements.txt
+            framework-pruebas-sql/requirements-docs.txt
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-docs.txt
+      - name: Comprobar que lo generado está al día
+        run: python scripts/docs/gen_docs.py --check
+      - name: Construir el sitio (modo estricto, los avisos son errores)
+        run: python -m mkdocs build --strict -d site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: framework-pruebas-sql/site
+
+  publicar:
+    if: github.event_name != 'pull_request'
+    needs: construir
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - id: despliegue
+        uses: actions/deploy-pages@v4

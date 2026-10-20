@@ -1,56 +1,38 @@
+%% GENERADO por scripts/docs/gen_docs.py. No editar a mano.
+%% Clases del motor de ejecución, la seguridad y los servicios (app/engine, app/security, app/services, app/core)
 classDiagram
-    class Project {
-        +Integer id
-        +String name
-        +String description
+    class UsageError {
     }
-    class ConnectionProfile {
-        +Integer id
-        +Integer project_id
-        +String name
-        +String host
-        +Integer port
-        +String service_name
-        +String username
-        +String environment_type
+    class TargetDatabaseExecutor {
+        +dsn
+        +user
+        +password
+        +environment_type
+        +max_rows
+        +timeout_ms
+        +connect()
+        +execute_query(query, params, confirm_staging_dml) Dict~str~
+        +disconnect()
     }
-    class TestCase {
-        +Integer id
-        +Integer project_id
-        +String name
-        +String description
-        +String sql_query
-        +String validation_type
-        +String expected_result
+    class ValidationStrategy {
+        <<abstract>>
+        +evaluate(execution_data, expected_value) bool
     }
-    class TestSuite {
-        +Integer id
-        +Integer project_id
-        +String name
-        +String description
+    class RowCountValidation {
+        +evaluate(execution_data, expected_value) bool
     }
-    class ExecutionHistory {
-        +Integer id
-        +Integer project_id
-        +Integer test_case_id
-        +Integer suite_id
-        +Integer connection_profile_id
-        +String status
-        +DateTime executed_at
-        +Float duration_ms
-        +String statement_type
-        +String executed_sql
-        +String validation_type
-        +String expected_result
-        +String actual_result
-        +Integer rowcount
-        +Boolean rollback_applied
-        +String rollback_error
-        +String error_message
+    class ExistenceValidation {
+        +evaluate(execution_data, expected_value) bool
     }
-
-    Project "1" -- "*" ConnectionProfile : contains
-    Project "1" -- "*" TestCase : contains
-    Project "1" -- "*" TestSuite : contains
-    Project "1" -- "*" ExecutionHistory : logs
-    TestSuite "*" -- "*" TestCase : includes
+    class ValidationContext {
+        +set_strategy(strategy)
+        +execute_validation(execution_data, expected_value) bool
+    }
+    class ScalarValueValidation {
+        +evaluate(execution_data, expected_value) bool
+    }
+    class ExcelError {
+    }
+    ValidationStrategy <|-- RowCountValidation
+    ValidationStrategy <|-- ExistenceValidation
+    ValidationStrategy <|-- ScalarValueValidation

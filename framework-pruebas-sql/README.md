@@ -4,7 +4,7 @@
 **Framework de pruebas de base de datos SQL**
 
 ## 2. Objetivo
-El objetivo del sistema es permitir definir, ejecutar, validar y registrar pruebas automáticas sobre bases de datos SQL relacionales (con Oracle como motor objetivo para el MVP), garantizando el aislamiento transaccional mediante el uso obligatorio de `ROLLBACK` y la trazabilidad de la evidencia de ejecución.
+El objetivo del sistema es permitir definir, ejecutar, validar y registrar pruebas automáticas sobre bases de datos SQL relacionales (con Oracle como motor objetivo para el MVP), aplicando `ROLLBACK` a las operaciones de datos permitidas (un control con límites, no una garantía universal) y conservando la evidencia de cada ejecución.
 
 ## 3. Tecnologías
 - **Lenguaje:** Python 3.x
@@ -29,7 +29,7 @@ El sistema sigue una arquitectura modular y desacoplada por capas:
 - **Models**: Esquemas Pydantic v2 con validación estricta de tipos de datos y modelos ORM de SQLAlchemy.
 
 ## 5. Requisitos de Sistema
-- Python 3.10 o superior
+- Python 3.11 (versión con la que se ejecutaron las pruebas locales). La imagen Docker y GitHub Actions usan 3.12, que **no se probó en local**; otras versiones no se comprobaron
 - Pip (Administrador de paquetes de Python)
 - Git
 
@@ -73,7 +73,7 @@ No abras `frontend/index.html` mediante `file://`, porque el flujo oficial utili
 pytest -v
 ```
 *Nota: Las pruebas automáticas corren sobre una base de datos SQLite en memoria aislada (`:memory:`) sin alterar `framework_interno.db` ni requerir una conexión Oracle real.*
-El total de pruebas de la suite completa se informa en los resultados. Oracle Database Free ya fue validado localmente (con 76 pruebas normales y 11 Oracle). La contraseña se solicita únicamente al probar o ejecutar y nunca se persiste. Para entornos de Producción, el sistema aplica una estricta política de solo lectura (SELECT).
+El total de pruebas de la suite completa se informa en los resultados. Las pruebas Oracle se ejecutaron contra un Oracle Free local desechable el 18‑oct‑2026 (23 pruebas Oracle superadas); el resultado actual de la suite sin Oracle se ve con `python -m pytest -q` (ver `docs/informes/FD05-informe-final.md` §6.3). La contraseña se solicita únicamente al probar o ejecutar y nunca se persiste. Para entornos de Producción, el sistema aplica una estricta política de solo lectura (SELECT).
 
 ## 11. Uso del Archivo `.env.example`
 Copia la plantilla de variables de entorno y ajusta los valores locales si es necesario:
@@ -146,6 +146,8 @@ framework_pruebas_sql/
 - [Manual de Usuario](docs/manual-usuario.md)
 - [Instalación Local](docs/instalacion-local.md)
 - [Despliegue](docs/despliegue.md)
+- [Operación de la Fase 3: infraestructura, copias, release y despliegue](docs/operacion-fase3.md)
+- [Fase 4: dashboard de uso e integraciones (Excel, CLI, GitHub Actions)](docs/integraciones-fase4.md)
 
 ## 18. Estado Real del Despliegue
 Actualmente, el despliegue automático mediante GitHub Actions está configurado para integración continua (CI). El despliegue a un proveedor Cloud sigue pendiente de variables de entorno y DNS definitivos.
@@ -188,3 +190,55 @@ Asegúrese de que el entorno contenga las variables del archivo `.env.oracle` (p
 ```bash
 pytest -v -m oracle_integration
 ```
+
+## Resumen generado
+
+<!-- GENERADO:inicio resumen -->
+<!-- Bloque generado por scripts/docs/gen_docs.py; no editar a mano. -->
+
+**Versión de la API:** 2.0.0 · **Operaciones HTTP documentadas (OpenAPI):** 38 · **Tablas de la base interna (SQLite):** 7 · **Archivos de prueba:** 22 · **Funciones `test_` (recuento estático; no prueba que pasen):** 292
+
+| Grupo de endpoints | Rutas |
+| --- | --- |
+| Autenticación | 2 |
+| Casos de Prueba | 5 |
+| Escenario de demostración | 1 |
+| Excel | 4 |
+| Historial de Ejecuciones | 2 |
+| Motor de Ejecución | 4 |
+| Perfiles de Conexión | 6 |
+| Proyectos | 5 |
+| Salud | 1 |
+| Suites de Pruebas | 7 |
+| Uso del producto | 1 |
+
+**Tablas de la base interna:** `projects`, `connection_profiles`, `test_cases`, `test_suites`, `usage_events`, `execution_history`, `suite_test_case` (diccionario en [docs/generated/diccionario-datos.md](docs/generated/diccionario-datos.md)).
+
+**Subcomandos de la CLI** (`python -m app.cli`): `export-excel`, `import-excel`, `init-db`, `run`.
+
+**Documentación del repositorio:**
+
+- [Arquitectura del Sistema](docs/arquitectura.md)
+- [Propuesta de corrección de FD03 (SRS) y FD04 (SAD)](docs/correccion-fd03-fd04.md)
+- [Demostración de la Fase 2: reglas sobre datos, suite repetible y evidencia](docs/demostracion-fase2.md)
+- [Guion de demostración (5–8 min) y preguntas del jurado](docs/demostracion-sustentacion.md)
+- [Despliegue (Docker)](docs/despliegue.md)
+- [Estándar de programación](docs/estandar-programacion.md)
+- [Evaluación del reto de integración](docs/evaluacion-reto-integracion.md)
+- [Framework de pruebas SQL — documentación técnica](docs/index.md)
+- [Instalación Local](docs/instalacion-local.md)
+- [Fase 4: dashboard de uso e integraciones](docs/integraciones-fase4.md)
+- [Manual Técnico](docs/manual-tecnico.md)
+- [Manual de Usuario](docs/manual-usuario.md)
+- [Matriz de Trazabilidad](docs/matriz-trazabilidad.md)
+- [Manual operativo — Fase 3: infraestructura, base de datos, copias, release y despliegue](docs/operacion-fase3.md)
+- [Título, problema y objetivos (versión corregida — Fases 1 y 5)](docs/problema-y-objetivos.md)
+- [Protocolo para medir el «primer resultado» (antes y después)](docs/protocolo-usabilidad.md)
+- [Publicación en GitHub: autoría, primer push, configuración y primeras ejecuciones](docs/publicacion-github.md)
+- [Referencia SRS y SAD (Software Requirements & Architecture Document)](docs/referencia-srs-sad.md)
+- [Respaldo y Restauración](docs/respaldo-restauracion.md)
+- [Seguridad](docs/seguridad.md)
+- [Tareas propuestas para Gerald](docs/tareas-gerald.md)
+- [Verificación](docs/verificacion.md)
+
+<!-- GENERADO:fin resumen -->
