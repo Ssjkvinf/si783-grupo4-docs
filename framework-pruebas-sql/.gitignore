@@ -39,3 +39,20 @@ htmlcov/
 
 # Oracle data
 infra/oracle/oracle_data/
+# Terraform (el estado y los planes pueden contener datos sensibles; nunca se versionan)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan*
+crash.log
+*.auto.tfvars
+terraform.tfvars
+# El lock se genera en CI para linux_amd64; el generado en local solo trae hashes de Windows
+.terraform.lock.hcl
+
+
+# Sitio de documentación generado (mkdocs build)
+site/
+# Artefacto de un volcado de Liquibase contra H2 (no es parte del proyecto)
+infra/oracle/liquibase/databasechangelog.csv
