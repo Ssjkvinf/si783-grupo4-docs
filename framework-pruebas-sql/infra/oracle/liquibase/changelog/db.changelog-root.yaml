@@ -1,0 +1,21 @@
+# Objetos Oracle de la demostración (esquema FRAMEWORK_TEST), versionados con Liquibase.
+#
+# Alcance: SOLO los objetos de Oracle que usa la demostración. La base interna de la aplicación
+# (SQLite: proyectos, conexiones, casos, suites, historial) la versiona Alembic (carpeta alembic/).
+#
+# Contextos:
+#   esquema  -> tabla, índice y vista (seguro en cualquier entorno de pruebas)
+#   demo     -> datos de ejemplo (borra y recarga FRAMEWORK_TEST_ITEMS: SOLO en un Oracle desechable)
+databaseChangeLog:
+  - include:
+      file: 001_tabla_framework_test_items.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 002_indice_active.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 003_vista_items_activos.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 004_datos_demostracion.sql
+      relativeToChangelogFile: true

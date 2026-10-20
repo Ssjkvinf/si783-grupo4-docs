@@ -1,0 +1,173 @@
+name: Release (imagen versionada)
+
+# Qué hace (manual): prueba la aplicación, construye la imagen Docker, la publica en GHCR con la versión indicada,
+# crea el release de GitHub (con su tag) y, solo si se pide, llama al despliegue (deploy.yml, que exige aprobación).
+# Un push NUNCA publica ni despliega nada.
+# Guía: framework-pruebas-sql/docs/operacion-fase3.md
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión semántica con v (p. ej. v1.0.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Marcar el release como pre-release"
+        required: false
+        default: false
+        type: boolean
+      deploy:
+        description: "Desplegar en la VM después (pide aprobación en el entorno azure-production)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  version:
+    name: Validar la versión
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      image: ${{ steps.v.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: v
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::La versión debe tener el formato v1.2.3 (o v1.2.3-rc.1). Recibido: $VERSION"; exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            echo "::error::El tag $VERSION ya existe. Use una versión nueva (los tags no se reescriben)."; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}/framework-pruebas-sql" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Pruebas antes de publicar
+    needs: version
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: framework-pruebas-sql
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - run: python -m pip install -r requirements.txt
+      - name: Sintaxis de JavaScript
+        run: find frontend -name "*.js" -exec node --check {} \;
+      - name: pytest (sin Oracle)
+        run: python -m pytest -q -m "not oracle_integration" --junitxml=../reportes/pytest.xml
+      - name: Reporte de pruebas
+        if: always()
+        run: |
+          python scripts/reports/junit_to_md.py --junit ../reportes/pytest.xml --out ../reportes/reporte_pruebas.md \
+            --title "Pruebas del release ${{ needs.version.outputs.version }}" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-pruebas-release
+          path: reportes/
+          retention-days: 90
+
+  build:
+    name: Construir y publicar la imagen en GHCR
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Construir y publicar
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: framework-pruebas-sql
+          file: framework-pruebas-sql/Dockerfile
+          push: true
+          tags: |
+            ${{ needs.version.outputs.image }}:${{ needs.version.outputs.version }}
+            ${{ needs.version.outputs.image }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.version.outputs.version }}
+      - name: Resumen
+        run: |
+          {
+            echo "## Imagen publicada"
+            echo
+            echo "- Imagen: \`${{ needs.version.outputs.image }}:${{ needs.version.outputs.version }}\`"
+            echo "- Digest: \`${{ steps.push.outputs.digest }}\`"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo
+            echo "Si el paquete es privado, la VM necesita un token con \`read:packages\` (secretos GHCR_USER y GHCR_TOKEN del entorno azure-production)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    name: Crear el release de GitHub
+    needs: [version, test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: reporte-pruebas-release
+          path: reportes
+      - name: Crear tag y release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+          IMAGE: ${{ needs.version.outputs.image }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          flags=()
+          [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
+          cat > notas.md <<EOF
+          ## Imagen
+          \`$IMAGE:$VERSION\` (commit \`$GITHUB_SHA\`)
+
+          ## Despliegue
+          Se despliega con el flujo **Despliegue** (deploy.yml), manual y con aprobación. Revertir: mismo flujo con \`action = rollback\`.
+          Antes de cada despliegue se hace una copia consistente de la SQLite; revertir la imagen no revierte los datos.
+          EOF
+          gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes --notes-file notas.md "${flags[@]}" \
+            reportes/reporte_pruebas.md
+
+  deploy:
+    name: Desplegar en la VM
+    if: inputs.deploy
+    needs: [version, build, release]
+    uses: ./.github/workflows/deploy.yml
+    with:
+      action: deploy
+      image_tag: ${{ needs.version.outputs.version }}
+    secrets: inherit

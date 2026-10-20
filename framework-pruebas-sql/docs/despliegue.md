@@ -1,5 +1,7 @@
 # Despliegue (Docker)
 
+> **Fase 3:** el despliegue y la reversión automatizados (imagen versionada en GHCR, copia previa, prueba de salud y reversión automática) están en [`operacion-fase3.md`](operacion-fase3.md), secciones 7 y siguientes. Este documento describe el procedimiento manual con Docker Compose.
+
 ## Requisitos Previos
 - Docker y Docker Compose instalados en el entorno destino.
 - Acceso a `container-registry.oracle.com` (requiere login si usa imágenes oficiales protegidas).

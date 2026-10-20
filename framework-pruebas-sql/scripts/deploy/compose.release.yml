@@ -1,0 +1,8 @@
+# Capa que el despliegue superpone a infra/production/compose.yml para usar una imagen YA CONSTRUIDA y versionada
+# (publicada en GHCR) en lugar de construirla en la VM:
+#   docker compose -f compose.yml -f compose.release.yml --env-file .env.production up -d --no-build --no-deps api
+# API_IMAGE la define deploy_remote.sh; no hay secretos aquí.
+services:
+  api:
+    image: ${API_IMAGE:?API_IMAGE debe indicar la imagen a desplegar}
+    pull_policy: never

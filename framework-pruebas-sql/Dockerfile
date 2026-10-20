@@ -10,6 +10,8 @@ COPY alembic/ ./alembic/
 COPY app/ ./app/
 COPY frontend/ ./frontend/
 COPY scripts/start_production.sh ./scripts/
+# Scripts de copia de seguridad/restauración de la SQLite (usables con `docker exec` en versiones nuevas de la imagen)
+COPY scripts/backup/ ./scripts/backup/
 
 # Hacer el script ejecutable
 RUN chmod +x ./scripts/start_production.sh

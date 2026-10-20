@@ -1,0 +1,13 @@
+#cloud-config
+# Solo prepara la VM NUEVA: Docker + Compose y las carpetas de la aplicación.
+# No contiene secretos; las variables de la aplicación (.env.production) se crean a mano en la VM.
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - docker.io
+  - docker-compose-v2
+runcmd:
+  - systemctl enable --now docker
+  - mkdir -p /opt/framework/releases /opt/framework/backups
+  - usermod -aG docker azureuser

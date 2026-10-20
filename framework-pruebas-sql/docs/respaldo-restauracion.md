@@ -1,5 +1,7 @@
 # Respaldo y Restauración
 
+> **Actualización (Fase 3):** copiar el archivo `framework_interno.db` con `cp` o `docker cp` mientras la aplicación escribe **no garantiza una copia consistente**. El procedimiento recomendado usa la API de respaldo de SQLite (`scripts/backup/sqlite_backup.py`), verifica la restauración en una carpeta aislada y está automatizado en el flujo `backup.yml`. Ver [`operacion-fase3.md`](operacion-fase3.md), sección 6. Lo que sigue es el procedimiento manual anterior y solo es seguro con la API detenida.
+
 ## Respaldo
 
 El motor principal guarda perfiles, historiales y suites en `framework_interno.db` (SQLite). 
