@@ -45,13 +45,14 @@ def export_results(
     suite_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     days: Optional[int] = Query(None, ge=1, le=3650),
+    run_id: Optional[str] = Query(None, max_length=64),
     db: Session = Depends(get_db),
 ):
     if status and status.upper() not in ("PASS", "FAIL", "ERROR"):
         raise HTTPException(status_code=422, detail="Estado inválido. Use PASS, FAIL o ERROR.")
     if project_id:
         _project_or_404(db, project_id)
-    content = excel_io.export_results(db, project_id, suite_id, status, days)
+    content = excel_io.export_results(db, project_id, suite_id, status, days, run_id=run_id)
     record_event(db, "excel_export_results", project_id, "UI")
     return _xlsx(content, "resultados.xlsx")
 

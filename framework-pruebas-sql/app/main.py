@@ -4,18 +4,15 @@ from dotenv import load_dotenv
 # Cargar variables de entorno desde .env antes de cualquier otra importación
 load_dotenv()
 
-import secrets
-import base64
-import hmac
-import hashlib
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 from app.core.database import engine, Base, SessionLocal
-from app.models import project, connection, test_case, suite, history, usage
-from app.api import projects, connections, test_cases, suites, executions, demo, usage as api_usage, excel as api_excel, history as api_history
+from app.models import project, connection, test_case, suite, history, usage, user
+from app.api import projects, connections, test_cases, suites, executions, demo, usage as api_usage, excel as api_excel, history as api_history, rules as api_rules, users as api_users, analysis as api_analysis
+from app.security.acceso import usuario_actual
+from app.security.auth import leer_token
 # La creación del esquema y el Proyecto general se delega a las migraciones de Alembic (alembic upgrade head).
 
 app = FastAPI(
@@ -39,29 +36,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def create_session_token():
-    secret = os.getenv("APP_SESSION_SECRET", "").encode()
-    token_data = b"auth_valid"
-    signature = hmac.new(secret, token_data, hashlib.sha256).hexdigest()
-    return f"auth_valid.{signature}"
+RUTAS_PUBLICAS = {"/", "/health", "/login", "/api/login", "/api/logout", "/api/register"}
 
-def verify_session_token(token: str):
-    if not token or not token.startswith("auth_valid."):
-        return False
-    secret = os.getenv("APP_SESSION_SECRET", "").encode()
-    expected_signature = hmac.new(secret, b"auth_valid", hashlib.sha256).hexdigest()
-    try:
-        _, signature = token.split(".", 1)
-        return secrets.compare_digest(signature, expected_signature)
-    except ValueError:
-        return False
+CABECERAS_SEGURIDAD = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "same-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+}
+
 
 @app.middleware("http")
 async def cookie_auth_middleware(request: Request, call_next):
+    """
+    Primera barrera: sin una cookie de sesión firmada y vigente, /api/* responde 401 y las páginas redirigen a /login.
+    La segunda barrera (cuenta activa, sesión no anulada y rol) la aplica la dependencia `usuario_actual` en cada router.
+    """
+    response = await _controlar_acceso(request, call_next)
+    for clave, valor in CABECERAS_SEGURIDAD.items():
+        response.headers.setdefault(clave, valor)
+    # La interfaz se revalida en cada carga (ETag/Last-Modified): tras un despliegue nadie se queda con JavaScript viejo.
+    if request.url.path.startswith("/ui") or request.url.path == "/login":
+        response.headers.setdefault("Cache-Control", "no-cache")
+    return response
+
+
+async def _controlar_acceso(request: Request, call_next):
     # Solo aplicar protección si está habilitada en entorno
     if not os.getenv("APP_ACCESS_ENABLED", "").lower() == "true":
         return await call_next(request)
 
+    # El primer administrador se crea con estas variables: sin ellas (o sin secreto de sesión) el servicio no atiende.
     expected_username = os.getenv("APP_ACCESS_USERNAME", "").strip()
     expected_password = os.getenv("APP_ACCESS_PASSWORD", "").strip()
     session_secret = os.getenv("APP_SESSION_SECRET", "").strip()
@@ -71,15 +76,14 @@ async def cookie_auth_middleware(request: Request, call_next):
     path = request.url.path
 
     # Rutas públicas
-    if path in ["/", "/health", "/login", "/api/login"]:
+    if path in RUTAS_PUBLICAS:
         return await call_next(request)
 
     # Rutas de frontend de assets (css, js, imágenes) permitidas sin auth para cargar el login
     if path.startswith("/ui/css/") or path.startswith("/ui/js/"):
         return await call_next(request)
 
-    session_token = request.cookies.get("session_token")
-    if not verify_session_token(session_token):
+    if not leer_token(request.cookies.get("session_token")):
         if path.startswith("/api/"):
             return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
         else:
@@ -87,37 +91,6 @@ async def cookie_auth_middleware(request: Request, call_next):
 
     return await call_next(request)
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-@app.post("/api/login", tags=["Autenticación"])
-def login(creds: LoginRequest):
-    expected_username = os.getenv("APP_ACCESS_USERNAME", "").strip()
-    expected_password = os.getenv("APP_ACCESS_PASSWORD", "").strip()
-
-    if not secrets.compare_digest(creds.username, expected_username) or \
-       not secrets.compare_digest(creds.password, expected_password):
-        return JSONResponse(status_code=401, content={"detail": "Credenciales inválidas"})
-
-    token = create_session_token()
-    response = JSONResponse(content={"detail": "Login exitoso"})
-    secure_cookie = os.getenv("ENVIRONMENT", "production").lower() == "production"
-    response.set_cookie(
-        key="session_token",
-        value=token,
-        httponly=True,
-        secure=secure_cookie,
-        samesite="lax",
-        max_age=86400
-    )
-    return response
-
-@app.post("/api/logout", tags=["Autenticación"])
-def logout():
-    response = JSONResponse(content={"detail": "Logout exitoso"})
-    response.delete_cookie("session_token")
-    return response
 
 @app.get("/login", include_in_schema=False)
 def get_login_page():
@@ -131,16 +104,22 @@ def get_login_page():
 def health_check():
     return {"status": "ok", "message": "El motor del Framework SQL está en línea.", "version": "2.0.0"}
 
-# Registro de routers de la API v2
-app.include_router(projects.router, prefix="/api", tags=["Proyectos"])
-app.include_router(connections.router, prefix="/api", tags=["Perfiles de Conexión"])
-app.include_router(test_cases.router, prefix="/api", tags=["Casos de Prueba"])
-app.include_router(suites.router, prefix="/api", tags=["Suites de Pruebas"])
-app.include_router(executions.router, prefix="/api", tags=["Motor de Ejecución"])
-app.include_router(api_history.router, prefix="/api", tags=["Historial de Ejecuciones"])
-app.include_router(demo.router, prefix="/api", tags=["Escenario de demostración"])
-app.include_router(api_usage.router, prefix="/api", tags=["Uso del producto"])
-app.include_router(api_excel.router, prefix="/api", tags=["Excel"])
+# Registro de routers de la API v2.
+# Todas las rutas exigen un usuario con sesión válida; proyectos y conexiones se modifican solo con rol ADMIN
+# (lo controla cada ruta de escritura con `requiere_admin`).
+con_sesion = [Depends(usuario_actual)]
+app.include_router(api_users.router, prefix="/api", tags=["Usuarios y acceso"])
+app.include_router(projects.router, prefix="/api", tags=["Proyectos"], dependencies=con_sesion)
+app.include_router(connections.router, prefix="/api", tags=["Perfiles de Conexión"], dependencies=con_sesion)
+app.include_router(test_cases.router, prefix="/api", tags=["Casos de Prueba"], dependencies=con_sesion)
+app.include_router(suites.router, prefix="/api", tags=["Suites de Pruebas"], dependencies=con_sesion)
+app.include_router(executions.router, prefix="/api", tags=["Motor de Ejecución"], dependencies=con_sesion)
+app.include_router(api_history.router, prefix="/api", tags=["Historial de Ejecuciones"], dependencies=con_sesion)
+app.include_router(demo.router, prefix="/api", tags=["Escenario de demostración"], dependencies=con_sesion)
+app.include_router(api_usage.router, prefix="/api", tags=["Uso del producto"], dependencies=con_sesion)
+app.include_router(api_excel.router, prefix="/api", tags=["Excel"], dependencies=con_sesion)
+app.include_router(api_rules.router, prefix="/api", tags=["Asistente de reglas"], dependencies=con_sesion)
+app.include_router(api_analysis.router, prefix="/api", tags=["Analizar una tabla"], dependencies=con_sesion)
 
 # Montar frontend en /ui/
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")

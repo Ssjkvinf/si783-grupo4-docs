@@ -31,7 +31,16 @@ classDiagram
     class ScalarValueValidation {
         +evaluate(execution_data, expected_value) bool
     }
+    class LimiteDeIntentos {
+        +bloqueada(ip) bool
+        +fallo(ip)
+        +reiniciar(ip)
+    }
+    class AnalisisError {
+    }
     class ExcelError {
+    }
+    class ReglaInvalida {
     }
     ValidationStrategy <|-- RowCountValidation
     ValidationStrategy <|-- ExistenceValidation

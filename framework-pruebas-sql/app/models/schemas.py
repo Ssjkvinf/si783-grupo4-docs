@@ -1,8 +1,9 @@
 from app.security.target_policy import HOST_RE, SERVICE_RE
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 from typing import Optional, Any, List
 from datetime import datetime
 from enum import Enum
+from app.services.validacion_auto import inferir_validacion
 
 
 class ValidationTypeEnum(str, Enum):
@@ -180,8 +181,18 @@ class TestCaseCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)
     description: Optional[str] = Field(None, max_length=500)
     sql_query: str = Field(..., min_length=1)
-    validation_type: ValidationTypeEnum = ValidationTypeEnum.ROW_COUNT
+    validation_type: Optional[ValidationTypeEnum] = None     # sin valor o "AUTO": la aplicación lo decide (validacion_auto.py)
     expected_result: str = Field(..., min_length=1)
+
+    @model_validator(mode='before')
+    @classmethod
+    def validacion_automatica(cls, data: Any) -> Any:
+        if isinstance(data, dict) and str(data.get('validation_type') or 'AUTO').upper() == 'AUTO':
+            sql, esperado = data.get('sql_query'), data.get('expected_result')
+            if isinstance(sql, str) and isinstance(esperado, str) and esperado.strip():
+                tipo, normalizado, _ = inferir_validacion(sql, esperado)
+                data = {**data, 'validation_type': tipo, 'expected_result': normalizado}
+        return data
 
     @field_validator('name', 'sql_query', 'expected_result')
     @classmethod
@@ -204,6 +215,19 @@ class TestCaseUpdate(BaseModel):
     sql_query: Optional[str] = Field(None, min_length=1)
     validation_type: Optional[ValidationTypeEnum] = None
     expected_result: Optional[str] = Field(None, min_length=1)
+
+    @model_validator(mode='before')
+    @classmethod
+    def validacion_automatica(cls, data: Any) -> Any:
+        # Al editar, «AUTO» solo se puede resolver si llegan la consulta y el esperado.
+        if isinstance(data, dict) and str(data.get('validation_type') or '').upper() == 'AUTO':
+            sql, esperado = data.get('sql_query'), data.get('expected_result')
+            if isinstance(sql, str) and isinstance(esperado, str) and esperado.strip():
+                tipo, normalizado, _ = inferir_validacion(sql, esperado)
+                data = {**data, 'validation_type': tipo, 'expected_result': normalizado}
+            else:
+                data = {**data, 'validation_type': None}
+        return data
 
     @field_validator('name', 'sql_query')
     @classmethod
@@ -302,8 +326,16 @@ class QuickExecutionRequest(BaseModel):
     connection_profile_id: int
     password: str = Field(..., min_length=1)
     sql_query: str = Field(..., min_length=1)
-    validation_type: ValidationTypeEnum = ValidationTypeEnum.ROW_COUNT
+    validation_type: Optional[ValidationTypeEnum] = None     # sin valor o "AUTO": la aplicación lo decide (validacion_auto.py)
     expected_result: str = Field(..., min_length=1)
+    _motivo_auto: Optional[str] = PrivateAttr(default=None)
+
+    @model_validator(mode='before')
+    @classmethod
+    def aceptar_auto(cls, data: Any) -> Any:
+        if isinstance(data, dict) and str(data.get('validation_type') or '').upper() == 'AUTO':
+            data = {**data, 'validation_type': None}
+        return data
 
     @field_validator('sql_query', 'expected_result')
     @classmethod
@@ -315,8 +347,16 @@ class QuickExecutionRequest(BaseModel):
 
     @model_validator(mode='after')
     def validate_expected_for_type(self):
+        if self.validation_type is None:
+            tipo, self.expected_result, self._motivo_auto = inferir_validacion(self.sql_query, self.expected_result)
+            self.validation_type = ValidationTypeEnum(tipo)
         self.expected_result = normalize_expected_result(self.expected_result, self.validation_type)
         return self
+
+    @property
+    def motivo_validacion_automatica(self) -> Optional[str]:
+        """Explicación de por qué se eligió el tipo de validación (None si la persona lo eligió a mano)."""
+        return self._motivo_auto
 
 class QuickExecutionResponse(BaseModel):
     history_id: int
@@ -329,6 +369,8 @@ class QuickExecutionResponse(BaseModel):
     expected_text: str
     obtained_text: str
     reason: str
+    validation_auto: bool = False                 # True si la aplicación eligió el tipo de comparación
+    validation_reason: Optional[str] = None       # por qué lo eligió
     columns: List[str] = []
     obtained_value: Optional[str] = None
     rows: List[List[Any]] = []
@@ -362,6 +404,10 @@ class HistoryResponse(BaseModel):
     error_message: Optional[str] = None
     trigger_source: Optional[str] = None
     run_id: Optional[str] = None
+    executed_by: Optional[str] = None
+    case_name: Optional[str] = None
+    suite_name: Optional[str] = None
+    connection_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -378,6 +424,11 @@ class SuiteCaseResult(BaseModel):
     reason: str
     duration_ms: float = 0.0
     error_message: Optional[str] = None
+    # Comparación con la ejecución anterior del mismo caso (app/services/comparacion.py)
+    previous_status: Optional[str] = None
+    previous_executed_at: Optional[datetime] = None
+    change: Optional[str] = None
+    change_text: Optional[str] = None
 
 class SuiteExecutionSummary(BaseModel):
     suite_id: int
@@ -390,3 +441,5 @@ class SuiteExecutionSummary(BaseModel):
     run_id: Optional[str] = None
     details: List[HistoryResponse] = []
     case_results: List[SuiteCaseResult] = []
+    new_failures: int = 0
+    fixed: int = 0

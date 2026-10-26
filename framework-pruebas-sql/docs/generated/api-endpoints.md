@@ -3,25 +3,30 @@
 
 # Endpoints de la API
 
-Leídos del esquema OpenAPI de la aplicación FastAPI (`app.main:app`, versión 2.0.0). Total: **38** operaciones documentadas. No incluye `/ui/` (archivos estáticos), `/login` (página) ni `/` (redirección).
+Leídos del esquema OpenAPI de la aplicación FastAPI (`app.main:app`, versión 2.0.0). Total: **53** operaciones documentadas. No incluye `/ui/` (archivos estáticos), `/login` (página) ni `/` (redirección).
 
 La documentación interactiva está en `/docs` cuando la aplicación está en marcha.
 
 | Grupo | Método | Ruta | Resumen | Descripción (primera línea del docstring) |
 | --- | --- | --- | --- | --- |
-| Autenticación | POST | `/api/login` | Login |  |
-| Autenticación | POST | `/api/logout` | Logout |  |
+| Analizar una tabla | POST | `/api/analysis/save-suite` | Guardar Suite | Crea un caso por cada regla elegida (el SQL se vuelve a generar aquí) y una suite que los agrupa. |
+| Analizar una tabla | POST | `/api/analysis/table` | Analizar Tabla | Lee la estructura y el estado actual de la tabla (solo SELECT) y propone reglas de calidad. No disponible en PRODUCTION. |
+| Asistente de reglas | POST | `/api/rules/build` | Build Rule | Convierte una regla y sus datos en el SELECT, el tipo de validación y el valor esperado. |
+| Asistente de reglas | GET | `/api/rules/templates` | List Rule Templates | Lista las reglas comunes que el asistente sabe convertir en una consulta (con sus campos y ejemplos). |
 | Casos de Prueba | GET | `/api/test-cases/` | Read Test Cases | Obtiene la lista de casos de prueba guardados con paginación y filtro de proyecto. |
 | Casos de Prueba | POST | `/api/test-cases/` | Create Test Case | Crea un nuevo caso de prueba asignado a un proyecto. |
 | Casos de Prueba | DELETE | `/api/test-cases/{test_case_id}` | Delete Test Case | Elimina un caso de prueba de la base de datos. |
 | Casos de Prueba | GET | `/api/test-cases/{test_case_id}` | Read Test Case | Obtiene un caso de prueba específico por su ID. |
 | Casos de Prueba | PUT | `/api/test-cases/{test_case_id}` | Update Test Case | Actualiza la información de un caso de prueba. |
+| Escenario de demostración | POST | `/api/demo/guided` | Run Guided Demo | Ejecuta la demostración completa (reglas, FAIL/ERROR y control de cambios) y dice si cada caso dio lo que el guion espera. |
 | Escenario de demostración | POST | `/api/demo/scenario` | Create Demo Scenario | Carga (de forma idempotente) las suites de demostración en el proyecto indicado. |
 | Excel | GET | `/api/excel/cases/export` | Export Cases |  |
 | Excel | POST | `/api/excel/cases/import` | Import Cases | Importa casos desde un .xlsx enviado como cuerpo binario de la petición (sin multipart). |
 | Excel | GET | `/api/excel/results/export` | Export Results |  |
 | Excel | GET | `/api/excel/template` | Download Template | Plantilla de casos con instrucciones, ejemplos y lista desplegable de validaciones. |
 | Historial de Ejecuciones | GET | `/api/history/` | Get History | Obtiene el historial de ejecuciones guardadas admitiendo paginación |
+| Historial de Ejecuciones | GET | `/api/history/runs` | Get Suite Runs | Últimas corridas de una suite (la más reciente primero) con sus conteos, para ver la tendencia y comparar. |
+| Historial de Ejecuciones | GET | `/api/history/runs/{run_id}/report` | Get Run Report | Reporte HTML descargable de una corrida (se puede imprimir o guardar como PDF desde el navegador). |
 | Historial de Ejecuciones | GET | `/api/history/{history_id}` | Get History Detail | Obtiene los detalles de un registro de historial específico. |
 | Motor de Ejecución | POST | `/api/execute/quick` | Run Quick Check | Prueba rápida del recorrido guiado: ejecuta UN SELECT contra un perfil de |
 | Motor de Ejecución | POST | `/api/execute/raw` | Execute Target Sql | Ejecuta una sentencia SQL aislada, sobre un perfil guardado, aplicando las políticas del ambiente. |
@@ -47,3 +52,13 @@ La documentación interactiva está en `/docs` cuando la aplicación está en ma
 | Suites de Pruebas | DELETE | `/api/suites/{suite_id}/test-cases/{test_case_id}` | Remove Test Case From Suite | Retira un caso de una suite de forma controlada. |
 | Suites de Pruebas | POST | `/api/suites/{suite_id}/test-cases/{test_case_id}` | Add Test Case To Suite | Vincula un Caso de Prueba a una Suite de Pruebas. |
 | Uso del producto | GET | `/api/usage/summary` | Get Usage Summary | Resumen de uso: ejecuciones por fecha, resultados, casos y suites más usados, origen y eventos. |
+| Usuarios y acceso | POST | `/api/login` | Login | Ingresa con usuario y contraseña. Bloquea la cuenta tras 5 fallos seguidos y la IP tras 20 fallos en 15 minutos. |
+| Usuarios y acceso | POST | `/api/logout` | Logout | Cierra la sesión: borra la cookie y anula el token (también en otros equipos donde se haya ingresado). |
+| Usuarios y acceso | GET | `/api/me` | Mi Cuenta | Usuario de la sesión. Sin control de acceso (modo local) responde como administrador local. |
+| Usuarios y acceso | POST | `/api/me/password` | Cambiar Mi Contrasena | Cambia la contraseña propia; cierra las otras sesiones y renueva la actual. |
+| Usuarios y acceso | POST | `/api/register` | Solicitar Cuenta | Solicitud de cuenta: queda como TESTER inactiva hasta que un ADMIN la apruebe. |
+| Usuarios y acceso | GET | `/api/users` | Listar Usuarios | Todos los usuarios; primero los pendientes de aprobación. |
+| Usuarios y acceso | POST | `/api/users` | Crear Usuario | El administrador crea una cuenta ya activa. |
+| Usuarios y acceso | DELETE | `/api/users/{user_id}` | Eliminar Usuario | Elimina una cuenta (por ejemplo, una solicitud rechazada). El historial conserva el nombre en «ejecutado por». |
+| Usuarios y acceso | PATCH | `/api/users/{user_id}` | Actualizar Usuario | Aprobar/desactivar una cuenta o cambiar su rol. No permite quitarse el rol a uno mismo ni dejar el sistema sin administradores. |
+| Usuarios y acceso | POST | `/api/users/{user_id}/reset-password` | Restablecer Contrasena | El administrador asigna una contraseña nueva (y desbloquea la cuenta). Cierra las sesiones de ese usuario. |

@@ -1,7 +1,7 @@
 %% GENERADO por scripts/docs/gen_docs.py. No editar a mano.
 %% Dependencias entre paquetes, leídas de los import de app/ y alembic/env.py (se omiten FastAPI y, salvo en app.core y alembic, SQLAlchemy por legibilidad).
 flowchart LR
-    nav["Navegador: frontend/ (15 archivos JS)"]
+    nav["Navegador: frontend/ (17 archivos JS)"]
     subgraph APP["Aplicación Python (app/)"]
         app_api["app.api"]
         app_cli["app.cli"]
@@ -35,8 +35,12 @@ flowchart LR
     app_main --> app_api
     app_main --> app_core
     app_main --> app_models
+    app_main --> app_security
     app_models --> app_core
     app_models --> app_security
+    app_models --> app_services
+    app_security --> app_core
+    app_security --> app_models
     app_services --> app_engine
     app_services --> app_models
     app_services --> app_security

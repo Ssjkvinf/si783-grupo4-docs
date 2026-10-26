@@ -62,7 +62,12 @@ def test_el_diccionario_distingue_la_base_interna_de_la_oracle_objetivo():
     assert "## 1. Base interna (SQLite)" in md
     assert "## 2. Objetos Oracle de la demostración" in md
     assert "FRAMEWORK_TEST_ITEMS" in md
-    assert "password" not in " ".join(l for l in md.splitlines() if l.startswith("| `")).lower().replace("contraseña", "")
+    filas = [l for l in md.splitlines() if l.startswith("| `")]
+    # La única columna con «password» es el hash de la contraseña de los usuarios de la aplicación (nunca la contraseña).
+    fila_hash = [l for l in filas if l.startswith("| `password_hash`")]
+    assert len(fila_hash) == 1 and "PBKDF2" in fila_hash[0]
+    resto = [l for l in filas if not l.startswith("| `password_hash`")]
+    assert "password" not in " ".join(resto).lower().replace("contraseña", "")
 
 
 # --------------------------------------------------------------------------------------------- diagramas

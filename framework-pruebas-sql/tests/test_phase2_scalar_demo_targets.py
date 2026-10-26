@@ -176,7 +176,7 @@ def test_explain_exists_y_row_count_siguen_igual():
 
 # ------------------------------------------------------------------- escenario de demostración
 
-def test_demo_scenario_es_idempotente_y_crea_dos_suites():
+def test_demo_scenario_es_idempotente_y_crea_tres_suites():
     proj = client.post("/api/projects/", json={"name": "Proyecto demo"}).json()["id"]
 
     r1 = client.post("/api/demo/scenario", json={"project_id": proj})
@@ -187,12 +187,15 @@ def test_demo_scenario_es_idempotente_y_crea_dos_suites():
     assert a["rules_suite"]["created_suite"] is True and b["rules_suite"]["created_suite"] is False
     assert a["rules_suite"]["suite_id"] == b["rules_suite"]["suite_id"]
     assert a["rules_suite"]["case_ids"] == b["rules_suite"]["case_ids"]
-    assert b["rules_suite"]["created_cases"] == 0 and b["examples_suite"]["created_cases"] == 0
+    assert b["rules_suite"]["created_cases"] == 0 and b["examples_suite"]["created_cases"] == 0 and b["control_suite"]["created_cases"] == 0
+    assert a["control_suite"]["created_suite"] is True and b["control_suite"]["created_suite"] is False
 
-    assert len(client.get(f"/api/test-cases/?project_id={proj}").json()) == 7
+    # 5 reglas + 2 ejemplos de FAIL/ERROR + 4 casos de control de cambios (Fase 8)
+    assert len(client.get(f"/api/test-cases/?project_id={proj}").json()) == 11
     suite = client.get(f"/api/suites/{a['rules_suite']['suite_id']}").json()
     assert len(suite["test_cases"]) == 5
     assert len(client.get(f"/api/suites/{a['examples_suite']['suite_id']}").json()["test_cases"]) == 2
+    assert len(client.get(f"/api/suites/{a['control_suite']['suite_id']}").json()["test_cases"]) == 4
 
 
 def test_demo_scenario_valida_entradas():

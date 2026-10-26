@@ -5,7 +5,7 @@ Métricas de uso del producto, calculadas SOLO con datos persistidos en la base 
   - usage_events       (importar/exportar Excel y otras acciones que no son ejecuciones)
 
 No hay datos inventados ni estimaciones: si no hay registros, el resultado lo dice (`hay_datos = False`).
-Las fechas están en UTC. La aplicación usa una credencial compartida, por lo que NO se mide uso por persona.
+Las fechas están en UTC. El uso por persona sale de «ejecutado por» (existe desde que hay usuarios con rol).
 """
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
@@ -35,6 +35,10 @@ EVENTOS = {
     "excel_export_results": "Exportaciones de resultados a Excel",
     "excel_template": "Descargas de la plantilla de Excel",
     "demo_scenario_loaded": "Cargas del escenario de demostración",
+    "demo_guided_run": "Demostraciones guiadas ejecutadas",
+    "account_requested": "Solicitudes de cuenta enviadas desde la pantalla de ingreso",
+    "table_analyzed": "Tablas analizadas con «Analizar una tabla»",
+    "table_analysis_saved": "Suites creadas desde «Analizar una tabla»",
 }
 
 DEFINICIONES = {
@@ -47,12 +51,13 @@ DEFINICIONES = {
     "top_casos": "Casos con más ejecuciones en el periodo, con su resultado más reciente.",
     "top_suites": "Suites con más corridas en el periodo.",
     "por_origen": "Desde dónde se lanzaron las ejecuciones (interfaz, recorrido guiado, CLI o GitHub Actions).",
+    "por_usuario": "Quién lanzó las ejecuciones (usuario de la aplicación, «cli» o «github-actions»).",
     "altas": "Casos, suites y conexiones creados en el periodo (según su fecha de creación guardada).",
     "eventos": "Acciones que no son ejecuciones: importaciones y exportaciones de Excel, etc.",
 }
 
 LIMITACIONES = [
-    "La aplicación usa una credencial compartida: no se mide el uso por persona.",
+    "El uso por persona solo cuenta ejecuciones con usuario: las anteriores a las cuentas individuales o hechas sin control de acceso aparecen como «sin usuario».",
     "Las fechas y los días se calculan en UTC.",
     "Los registros anteriores a la Fase 4 no tienen origen: aparecen como «origen no registrado».",
     "Solo cuenta lo que quedó guardado en la base interna; las ejecuciones desde la CLI con otra base no aparecen aquí.",
@@ -145,6 +150,10 @@ def build_summary(db: Session, days: int = 30, project_id: Optional[int] = None,
     origen = Counter((r.trigger_source or "SIN_REGISTRAR") for r in rows)
     por_origen = [{"origen": k, "descripcion": ORIGENES.get(k, k), "ejecuciones": n} for k, n in sorted(origen.items(), key=lambda kv: -kv[1])]
 
+    # --- personas
+    usuarios = Counter((r.executed_by or "sin usuario") for r in rows)
+    por_usuario = [{"usuario": k, "ejecuciones": n} for k, n in sorted(usuarios.items(), key=lambda kv: -kv[1])]
+
     # --- altas en el periodo y totales actuales
     def count_since(model, col, extra=None):
         qq = db.query(model).filter(col >= first_day)
@@ -209,6 +218,7 @@ def build_summary(db: Session, days: int = 30, project_id: Optional[int] = None,
         "top_suites": top_suites[:5],
         "proyectos": proyectos,
         "por_origen": por_origen,
+        "por_usuario": por_usuario,
         "altas": altas,
         "totales_actuales": totales_actuales,
         "eventos": eventos,

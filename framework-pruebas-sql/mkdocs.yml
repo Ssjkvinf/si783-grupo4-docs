@@ -44,6 +44,7 @@ nav:
       - FD03 (fuente corregida): informes/FD03-fuente-corregida.md
       - FD04 (fuente corregida): informes/FD04-fuente-corregida.md
       - FD05 Informe final (borrador): informes/FD05-informe-final.md
+  - Resumen de una página: resumen-una-pagina.md
   - Problema y objetivos: problema-y-objetivos.md
   - Estándar de programación: estandar-programacion.md
   - Manuales:
@@ -73,15 +74,18 @@ nav:
       - Tareas para Gerald: tareas-gerald.md
   - Referencia del código:
       - Índice: referencia/index.md
+      - app.api.analysis: referencia/api_analysis.md
       - app.api.connections: referencia/api_connections.md
       - app.api.demo: referencia/api_demo.md
       - app.api.excel: referencia/api_excel.md
       - app.api.executions: referencia/api_executions.md
       - app.api.history: referencia/api_history.md
       - app.api.projects: referencia/api_projects.md
+      - app.api.rules: referencia/api_rules.md
       - app.api.suites: referencia/api_suites.md
       - app.api.test_cases: referencia/api_test_cases.md
       - app.api.usage: referencia/api_usage.md
+      - app.api.users: referencia/api_users.md
       - app.cli: referencia/cli.md
       - app.core.database: referencia/core_database.md
       - app.engine.executor: referencia/engine_executor.md
@@ -94,10 +98,18 @@ nav:
       - app.models.suite: referencia/models_suite.md
       - app.models.test_case: referencia/models_test_case.md
       - app.models.usage: referencia/models_usage.md
+      - app.models.user: referencia/models_user.md
+      - app.security.acceso: referencia/security_acceso.md
+      - app.security.auth: referencia/security_auth.md
       - app.security.sql_policy: referencia/security_sql_policy.md
       - app.security.target_policy: referencia/security_target_policy.md
+      - app.services.analisis_tabla: referencia/services_analisis_tabla.md
+      - app.services.comparacion: referencia/services_comparacion.md
       - app.services.demo_scenario: referencia/services_demo_scenario.md
       - app.services.excel_io: referencia/services_excel_io.md
       - app.services.execution_service: referencia/services_execution_service.md
       - app.services.project_service: referencia/services_project_service.md
+      - app.services.reporte_corrida: referencia/services_reporte_corrida.md
+      - app.services.rule_templates: referencia/services_rule_templates.md
       - app.services.usage_service: referencia/services_usage_service.md
+      - app.services.validacion_auto: referencia/services_validacion_auto.md

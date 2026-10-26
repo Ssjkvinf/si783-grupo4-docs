@@ -19,6 +19,22 @@ Sin internet: las páginas de la documentación y los diagramas Mermaid del siti
 
 **Siempre:** dejar abierta una terminal en `framework-pruebas-sql/` con el entorno activado; el último `python -m pytest -q` guardado en pantalla o en captura.
 
+## 0b. Versión corta (3 minutos) para presentar a mucha gente
+
+Pensada para quien **no sabe SQL**. Lea antes `docs/resumen-una-pagina.md`.
+
+| Min | Qué se hace | Qué se dice |
+| --- | --- | --- |
+| 0:00 | Abrir «Inicio». Mostrar el recuadro verde | «Esto comprueba que los datos de una base Oracle siguen siendo los esperados, y deja la evidencia.» |
+| 0:20 | Clic en **Demostración guiada** (conexión TEST + contraseña) | «Va a ejecutar todo de una vez.» |
+| 0:40 | Señalar los tres bloques: 5 PASS; un FAIL y un ERROR; el control de cambios | «PASS: coincide. FAIL: se ejecutó pero no coincide. ERROR: no se pudo ejecutar.» |
+| 1:20 | En el bloque 3: INSERT = PASS, conteo sigue en 5, DROP = ERROR | «El INSERT se hizo y se deshizo. El DROP ni llegó a Oracle: la tabla sigue ahí. Es un control de seguridad, no lo principal.» |
+| 1:50 | **Asistente de reglas**: elegir «Ninguna fila con la columna vacía», cambiar tabla o columna, «Usar esta regla», Ejecutar | «Sin escribir SQL: usted elige la regla y la aplicación escribe la consulta.» |
+| 2:30 | **Historial** y **Uso del producto** | «Cada ejecución queda registrada: qué se esperaba, qué se obtuvo y desde dónde se lanzó.» |
+| 2:50 | Una frase de límites | «PASS no significa que toda la base esté bien; no medimos cuánto tiempo ahorra.» |
+
+Con el Oracle simulado (`scripts/demo/offline_demo.py servir`) la demostración guiada también funciona, pero **dígalo**: no es Oracle.
+
 ## 1. Guion
 
 | Min | Quién | Qué se muestra | Qué se dice | Evidencia |
@@ -33,7 +49,7 @@ Sin internet: las páginas de la documentación y los diagramas Mermaid del siti
 | 5:30 | Gerald | **Uso del producto** | Ejecuciones por fecha, casos y suites más usados, origen (Inicio/UI/CLI/Actions); cada tarjeta explica su cálculo. «Con una demostración hay pocos datos; no es uso real». | `app/services/usage_service.py`; `tests/test_phase4_usage.py` |
 | 6:15 | Gerald | Terminal: `python -m app.cli run …` (ver `docs/integraciones-fase4.md` §3) y `echo $?`; **Casos → Plantilla Excel** | Código de salida 0/1/2 según PASS/FAIL/ERROR; Excel con importación validada. | `tests/test_phase4_cli.py`, `tests/test_phase4_excel.py` |
 | 7:00 | Kevin | `docs/generated/diagramas.md` o el sitio de documentación | Diagramas generados del código (ER de la base interna, clases, componentes, despliegue). | `python scripts/docs/gen_docs.py --check` |
-| 7:30 | Kevin | Diapositiva de límites | Utilidad **no medida**; Azure y GitHub Actions **sin verificar**; una credencial compartida; Oracle ≥ 12.1. | `docs/informes/FD05-informe-final.md` §6.2 |
+| 7:30 | Kevin | Diapositiva de límites | Utilidad **no medida**; Azure y GitHub Actions **sin verificar**; cuentas sin recuperación por correo ni segundo factor; Oracle ≥ 12.1. | `docs/informes/FD05-informe-final.md` §6.2 |
 
 Si falta tiempo: omitir los minutos 2:00–3:00 (suite rota) o 6:15 (CLI/Excel). **No** omitir el 7:30.
 

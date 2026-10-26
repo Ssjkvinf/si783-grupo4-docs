@@ -26,6 +26,24 @@ Proyecto: agrupa perfiles de conexión, casos, suites e historial. Es el filtro 
 | `created_at` | DATETIME | sí |  | (función de la aplicación: fecha y hora actual UTC) |  | Fecha y hora de creación (UTC, con zona horaria). |
 | `updated_at` | DATETIME | sí |  | (función de la aplicación: fecha y hora actual UTC) |  | Fecha y hora de la última modificación (UTC, con zona horaria). |
 
+### `users`
+
+Usuarios de la aplicación con su rol (ADMIN o TESTER). Guarda solo el hash de la contraseña, nunca la contraseña.
+
+| Columna | Tipo | Nulo | Clave | Por defecto (en la aplicación) | Índice | Descripción |
+| --- | --- | --- | --- | --- | --- | --- |
+| `id` | INTEGER | no | PK |  |  | Identificador del usuario. |
+| `username` | VARCHAR(50) | no | único |  | sí | Nombre de usuario para ingresar. Único; empieza con una letra (3 a 50 caracteres). |
+| `full_name` | VARCHAR(120) | sí |  |  |  | Nombre completo para mostrar (opcional). |
+| `password_hash` | VARCHAR(255) | no |  |  |  | Hash PBKDF2-SHA256 con sal de la contraseña (formato pbkdf2_sha256$iteraciones$sal$hash). La contraseña no se guarda. |
+| `role` | VARCHAR(20) | no |  | 'TESTER' |  | Rol: ADMIN (administra usuarios, proyectos y conexiones) o TESTER (crea y ejecuta casos y suites). |
+| `active` | BOOLEAN | no |  | True |  | Si puede ingresar. Las solicitudes de cuenta quedan inactivas hasta que un ADMIN las aprueba. |
+| `failed_attempts` | INTEGER | no |  | 0 |  | Intentos fallidos seguidos. Al llegar a 5 la cuenta se bloquea 15 minutos y el contador vuelve a 0. |
+| `locked_until` | DATETIME | sí |  |  |  | Hasta cuándo está bloqueada la cuenta por intentos fallidos (UTC). Vacío si no está bloqueada. |
+| `session_version` | INTEGER | no |  | 1 |  | Versión de sesión: sube al cerrar sesión, cambiar la contraseña, el rol o desactivar la cuenta, y anula los tokens anteriores. |
+| `created_at` | DATETIME | sí |  | (función de la aplicación: fecha y hora actual UTC) |  | Fecha y hora de creación o de la solicitud (UTC, con zona horaria). |
+| `last_login_at` | DATETIME | sí |  |  |  | Último ingreso correcto (UTC, con zona horaria). |
+
 ### `connection_profiles`
 
 Perfil de conexión a la base objetivo (Oracle): dónde y con qué usuario conectarse. NO guarda contraseñas.
@@ -111,6 +129,7 @@ Historial: evidencia de cada ejecución (qué se ejecutó, qué se esperaba, qu�
 | `error_message` | TEXT | sí |  |  |  | Motivo del ERROR (en PRODUCTION se oculta salvo los rechazos de política). |
 | `trigger_source` | VARCHAR | sí |  |  | sí | Origen: UI (módulos Casos/Suites), INICIO (recorrido guiado), CLI o GITHUB_ACTIONS. Vacío en registros anteriores a la Fase 4. |
 | `run_id` | VARCHAR | sí |  |  | sí | Identificador de corrida: todas las filas de una misma ejecución de suite o de la CLI lo comparten. |
+| `executed_by` | VARCHAR(50) | sí |  |  | sí | Usuario que lanzó la ejecución, o «cli» / «github-actions». Vacío sin control de acceso o en registros anteriores a los usuarios. |
 
 ### `suite_test_case`
 
@@ -143,7 +162,7 @@ El borrado en cascada solo lo hace el ORM al eliminar un proyecto; los endpoints
 | `connection_profiles.environment_type` | `TEST`, `STAGING`, `PRODUCTION` | `EnvironmentTypeEnum` en `app/models/schemas.py` |
 | `execution_history.status` | `PASS`, `FAIL`, `ERROR` | `app/api/history.py` (filtro) y `execution_service.py` |
 | `execution_history.trigger_source` | `CLI`, `GITHUB_ACTIONS`, `INICIO`, `SIN_REGISTRAR`, `UI` (vacío = anterior a la Fase 4) | `ORIGENES` en `app/services/usage_service.py` |
-| `usage_events.event_type` | `excel_export_cases`, `excel_export_results`, `excel_import_cases`, `excel_template`, `excel_validate_cases` | llamadas a `record_event` en `app/` |
+| `usage_events.event_type` | `account_requested`, `demo_guided_run`, `demo_scenario_loaded`, `excel_export_cases`, `excel_export_results`, `excel_import_cases`, `excel_template`, `excel_validate_cases`, `table_analysis_saved`, `table_analyzed` | llamadas a `record_event` en `app/` |
 
 ## 2. Objetos Oracle de la demostración (esquema `FRAMEWORK_TEST`)
 

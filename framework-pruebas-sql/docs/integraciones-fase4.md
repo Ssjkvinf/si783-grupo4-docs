@@ -21,7 +21,7 @@ Se calcula en el servidor (`GET /api/usage/summary?days=30&project_id=`) con dat
 
 Estados vacíos: sin ejecuciones, el panel explica qué hacer (ejecutar un caso o una suite) en vez de mostrar ceros sin contexto. Si la API falla, hay un botón para reintentar.
 
-No se mide uso por persona: la aplicación tiene un solo usuario compartido.
+El uso por persona se mide desde que existen cuentas individuales (columna `executed_by`); las ejecuciones anteriores aparecen como «sin usuario».
 
 ## 2. Excel (importar y exportar)
 

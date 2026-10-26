@@ -36,7 +36,8 @@ def test_login_success():
     response = client.post("/api/login", json={"username": "admin", "password": "secret"})
     assert response.status_code == 200
     assert "session_token" in response.cookies
-    assert response.cookies["session_token"].startswith("auth_valid.")
+    # Formato v2: token por usuario, firmado y con caducidad (el anterior «auth_valid.» era igual para todos y no caducaba).
+    assert response.cookies["session_token"].startswith("v2.")
 
 def test_login_failure():
     client = TestClient(app)

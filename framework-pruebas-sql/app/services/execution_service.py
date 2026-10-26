@@ -75,7 +75,8 @@ def run_single_test_case_execution(
     confirm_staging_dml: bool = False,
     details: Optional[Dict[str, Any]] = None,
     trigger_source: Optional[str] = None,
-    run_id: Optional[str] = None
+    run_id: Optional[str] = None,
+    executed_by: Optional[str] = None
 ) -> models_history.ExecutionHistory:
     """
     Servicio central que ejecuta un caso de prueba contra la BD objetivo,
@@ -173,7 +174,8 @@ def run_single_test_case_execution(
         rollback_error=rollback_error,
         error_message=error_msg,
         trigger_source=trigger_source,
-        run_id=run_id
+        run_id=run_id,
+        executed_by=executed_by
     )
 
     db.add(history_record)

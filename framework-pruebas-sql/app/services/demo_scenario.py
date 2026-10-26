@@ -45,6 +45,35 @@ EXAMPLES_CASES = [
 ]
 
 
+CONTROL_SUITE_NAME = "Demo: control de cambios (INSERT revertido y DROP rechazado)"
+# El orden importa y lo garantiza el orden por id de caso: primero el INSERT (se revierte), después se comprueba que nada cambió.
+CONTROL_CASES = [
+    ("Control: INSERT de prueba (se revierte)",
+     "Inserta una fila de prueba en TEST; la aplicación hace ROLLBACK. Debe dar PASS con 1 fila afectada.",
+     "INSERT INTO FRAMEWORK_TEST_ITEMS (ID, NAME, ACTIVE) VALUES (99, 'Prueba', 1)", "ROW_COUNT", "1"),
+    ("Control: tras el INSERT la tabla sigue con 5 filas",
+     "Cuenta las filas después del INSERT revertido: deben seguir siendo 5.",
+     "SELECT COUNT(*) FROM FRAMEWORK_TEST_ITEMS", "SCALAR_VALUE", "5"),
+    ("Control: DROP TABLE rechazado antes de llegar a Oracle",
+     "Un DROP no se ejecuta: la política lo rechaza y el resultado es un ERROR esperado.",
+     "DROP TABLE FRAMEWORK_TEST_ITEMS", "ROW_COUNT", "0"),
+    ("Control: tras el DROP rechazado la tabla sigue existiendo",
+     "Cuenta las filas después del intento de DROP: la tabla existe y tiene 5 filas.",
+     "SELECT COUNT(*) FROM FRAMEWORK_TEST_ITEMS WHERE 1 = 1", "SCALAR_VALUE", "5"),
+]
+
+# Qué resultado debe dar cada caso de la demostración guiada (para decir «como se esperaba» o «distinto de lo esperado»).
+ESTADO_ESPERADO_POR_CASO = {
+    **{c[0]: "PASS" for c in RULES_CASES},
+    EXAMPLES_CASES[0][0]: "FAIL",
+    EXAMPLES_CASES[1][0]: "ERROR",
+    CONTROL_CASES[0][0]: "PASS",
+    CONTROL_CASES[1][0]: "PASS",
+    CONTROL_CASES[2][0]: "ERROR",
+    CONTROL_CASES[3][0]: "PASS",
+}
+
+
 def _ensure_suite(db: Session, project_id: int, suite_name: str, cases: List[tuple]) -> Dict:
     created_cases = 0
     case_objs = []
@@ -75,8 +104,9 @@ def _ensure_suite(db: Session, project_id: int, suite_name: str, cases: List[tup
 
 
 def load_demo_scenario(db: Session, project_id: int) -> Dict:
-    """Crea (si faltan) los casos y las dos suites de demostración. Es idempotente."""
+    """Crea (si faltan) los casos y las tres suites de demostración (reglas, ejemplos de FAIL/ERROR y control de cambios). Es idempotente."""
     rules = _ensure_suite(db, project_id, RULES_SUITE_NAME, RULES_CASES)
     examples = _ensure_suite(db, project_id, EXAMPLES_SUITE_NAME, EXAMPLES_CASES)
+    control = _ensure_suite(db, project_id, CONTROL_SUITE_NAME, CONTROL_CASES)
     db.commit()
-    return {"project_id": project_id, "rules_suite": rules, "examples_suite": examples}
+    return {"project_id": project_id, "rules_suite": rules, "examples_suite": examples, "control_suite": control}

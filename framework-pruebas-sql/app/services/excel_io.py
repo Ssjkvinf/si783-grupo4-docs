@@ -174,8 +174,11 @@ def export_cases(db: Session, project_id: int) -> bytes:
 
 
 def export_results(db: Session, project_id: Optional[int] = None, suite_id: Optional[int] = None,
-                   status: Optional[str] = None, days: Optional[int] = None, limit: int = 5000) -> bytes:
+                   status: Optional[str] = None, days: Optional[int] = None, limit: int = 5000,
+                   run_id: Optional[str] = None) -> bytes:
     q = db.query(ExecutionHistory)
+    if run_id:
+        q = q.filter(ExecutionHistory.run_id == run_id)
     if project_id:
         q = q.filter(ExecutionHistory.project_id == project_id)
     if suite_id:

@@ -148,7 +148,7 @@ def test_dashboard_cada_metrica_tiene_su_definicion_y_los_limites_son_explicitos
     r = build_summary(_db(), days=7, now=AHORA)
     for clave in ("total_ejecuciones", "corridas_de_suite", "tasa_pass", "casos_distintos", "por_fecha", "top_casos", "por_origen"):
         assert len(r["definiciones"][clave]) > 30
-    assert any("credencial compartida" in l for l in r["limitaciones"])
+    assert any("por persona" in l for l in r["limitaciones"])
     assert any("UTC" in l for l in r["limitaciones"])
 
 
@@ -239,7 +239,8 @@ def test_migracion_agrega_columnas_y_tabla_y_se_puede_revertir(tmp_path):
     con.close()
 
     assert alembic("check").returncode == 0, "los modelos y las migraciones no coinciden"
-    assert alembic("downgrade", "-1").returncode == 0
+    # Volver a la revisión anterior a la Fase 4 (también revierte la de usuarios, que vino después).
+    assert alembic("downgrade", "d10691d55c95").returncode == 0
     con = sqlite3.connect(db)
     assert "trigger_source" not in {r[1] for r in con.execute("PRAGMA table_info(execution_history)")}
     assert con.execute("SELECT COUNT(*) FROM execution_history").fetchone()[0] == 1               # los datos se conservan

@@ -8,6 +8,19 @@ erDiagram
         DATETIME created_at
         DATETIME updated_at
     }
+    users {
+        INTEGER id PK
+        VARCHAR username
+        VARCHAR full_name
+        VARCHAR password_hash
+        VARCHAR role
+        BOOLEAN active
+        INTEGER failed_attempts
+        DATETIME locked_until
+        INTEGER session_version
+        DATETIME created_at
+        DATETIME last_login_at
+    }
     connection_profiles {
         INTEGER id PK
         INTEGER project_id FK
@@ -68,6 +81,7 @@ erDiagram
         TEXT error_message
         VARCHAR trigger_source
         VARCHAR run_id
+        VARCHAR executed_by
     }
     suite_test_case {
         INTEGER suite_id PK,FK

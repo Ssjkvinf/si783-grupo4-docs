@@ -57,10 +57,19 @@ def cmd_reparar() -> int:
     return 0
 
 
-def cmd_servir(puerto: int) -> int:
+def cmd_servir(puerto: int, con_acceso: bool = False) -> int:
     WORK.mkdir(parents=True, exist_ok=True)
     os.environ["FRAMEWORK_DB_URL"] = "sqlite:///" + INTERNAL.as_posix()
-    os.environ["APP_ACCESS_ENABLED"] = "false"
+    if con_acceso:
+        # Pantalla de ingreso, usuarios y roles activos. El primer administrador sale de estas variables (no se imprimen).
+        faltan = [v for v in ("APP_ACCESS_USERNAME", "APP_ACCESS_PASSWORD", "APP_SESSION_SECRET") if not os.getenv(v, "").strip()]
+        if faltan:
+            print("Para --con-acceso defina antes: " + ", ".join(faltan), file=sys.stderr)
+            return 2
+        os.environ["APP_ACCESS_ENABLED"] = "true"
+        os.environ["ENVIRONMENT"] = "development"   # cookie sin «Secure»: el servidor local usa http
+    else:
+        os.environ["APP_ACCESS_ENABLED"] = "false"
     sys.path.insert(0, str(ROOT))
     _preparar_objetivo()
 
@@ -108,12 +117,13 @@ def main(argv=None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("servir")
     s.add_argument("--puerto", type=int, default=8001)
+    s.add_argument("--con-acceso", action="store_true", help="activa el ingreso con usuarios y roles (requiere APP_ACCESS_USERNAME, APP_ACCESS_PASSWORD y APP_SESSION_SECRET)")
     sub.add_parser("romper")
     sub.add_parser("reparar")
     sub.add_parser("ruta")
     a = ap.parse_args(argv)
     if a.cmd == "servir":
-        return cmd_servir(a.puerto)
+        return cmd_servir(a.puerto, a.con_acceso)
     if a.cmd == "romper":
         return cmd_romper()
     if a.cmd == "reparar":

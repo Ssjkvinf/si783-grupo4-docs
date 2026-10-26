@@ -1,11 +1,19 @@
 # Seguridad
 
-## Autenticación y Acceso
-El sistema implementa protección mediante sesión por Cookie (`HttpOnly`, `SameSite=Lax`).
-- Se requiere definir `APP_ACCESS_ENABLED=true` en `.env`.
-- Definir credenciales de entorno: `APP_ACCESS_USERNAME` y `APP_ACCESS_PASSWORD`.
-- Definir el secreto de sesión en `APP_SESSION_SECRET` para firmar la cookie.
+## Autenticación, usuarios y roles
+Con `APP_ACCESS_ENABLED=true` la aplicación exige ingresar con una cuenta individual (`app/api/users.py`, `app/security/auth.py`, `app/security/acceso.py`).
+
+- **Primer administrador:** se crea al primer ingreso con `APP_ACCESS_USERNAME` y `APP_ACCESS_PASSWORD` si todavía no existe. Después la contraseña se cambia desde la aplicación («Cambiar mi contraseña»); cambiar la variable de entorno ya no la modifica. Si la contraseña inicial no cumple la política, la interfaz pide cambiarla.
+- **Roles:** `ADMIN` aprueba solicitudes, asigna roles y contraseñas, y crea, modifica o elimina proyectos y conexiones. `TESTER` usa las conexiones existentes para crear y ejecutar casos y suites, usar el asistente, Excel e historial. El servidor aplica el rol en cada ruta (403); la interfaz solo oculta los botones.
+- **Solicitud de cuenta:** la pantalla de ingreso permite «Solicitar acceso». La cuenta queda como `TESTER` **inactiva** hasta que un `ADMIN` la aprueba. Se desactiva con `APP_REGISTRATION_ENABLED=false`. Máximo 10 solicitudes por IP y hora.
+- **Contraseñas:** solo se guarda un hash PBKDF2-HMAC-SHA256 con sal aleatoria (`PASSWORD_HASH_ITERATIONS`, por defecto 260 000) y se comparan en tiempo constante. Política: al menos 10 caracteres, letras y números, sin contener el usuario.
+- **Sesión:** cookie `HttpOnly`, `SameSite=Strict`, `Secure` cuando `ENVIRONMENT=production`, válida 8 horas. El token va firmado con `APP_SESSION_SECRET` (HMAC-SHA256), es distinto en cada ingreso y lleva la «versión de sesión» del usuario: cerrar sesión, cambiar la contraseña o el rol, o desactivar la cuenta anula los tokens anteriores.
+- **Fuerza bruta:** 5 fallos seguidos bloquean la cuenta 15 minutos (423); 20 fallos desde una misma IP en 15 minutos devuelven 429. El mensaje es el mismo para usuario inexistente y contraseña incorrecta. Los contadores por IP viven en memoria y se reinician con el proceso.
+- **Reglas de administración:** nadie puede quitarse el rol de administrador ni desactivarse a sí mismo, y siempre queda al menos un administrador activo.
+- **Trazabilidad:** cada ejecución guarda `executed_by` (usuario, `cli` o `github-actions`); el panel «Uso del producto» muestra ejecuciones por persona.
+- **Cabeceras:** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` y `Permissions-Policy`.
 - Las contraseñas de Oracle se solicitan explícitamente durante el runtime y nunca se guardan en `framework_interno.db` ni en el navegador.
+- **Límites:** no hay recuperación de contraseña por correo (la asigna un administrador) ni segundo factor; el bloqueo por IP no se comparte entre varias réplicas del servicio.
 
 ## Motor de Políticas SQL (`sql_policy.py`)
 El motor de validación se divide en 3 anillos de seguridad implementados con `sqlparse`:

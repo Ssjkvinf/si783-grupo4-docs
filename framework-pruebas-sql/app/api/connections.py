@@ -10,12 +10,13 @@ from app.core.database import get_db
 from app.models import connection as models_conn
 from app.models import project as models_project
 from app.models import schemas
+from app.security.acceso import requiere_admin
 from app.engine.executor import TargetDatabaseExecutor
 from app.security.target_policy import ensure_host_allowed, ensure_valid_target
 
 router = APIRouter()
 
-@router.post("/connections/", response_model=schemas.ConnectionProfileResponse, status_code=201)
+@router.post("/connections/", response_model=schemas.ConnectionProfileResponse, status_code=201, dependencies=[Depends(requiere_admin)])
 def create_connection_profile(profile: schemas.ConnectionProfileCreate, db: Session = Depends(get_db)):
     """Crea un nuevo perfil de conexión Oracle para un proyecto (sin contraseña)."""
     project = db.query(models_project.Project).filter(models_project.Project.id == profile.project_id).first()
@@ -55,7 +56,7 @@ def get_connection_profile(connection_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Perfil de conexión no encontrado.")
     return profile
 
-@router.put("/connections/{connection_id}", response_model=schemas.ConnectionProfileResponse)
+@router.put("/connections/{connection_id}", response_model=schemas.ConnectionProfileResponse, dependencies=[Depends(requiere_admin)])
 def update_connection_profile(connection_id: int, profile_data: schemas.ConnectionProfileUpdate, db: Session = Depends(get_db)):
     """Actualiza la información de un perfil de conexión."""
     profile = db.query(models_conn.ConnectionProfile).filter(models_conn.ConnectionProfile.id == connection_id).first()
@@ -75,7 +76,7 @@ def update_connection_profile(connection_id: int, profile_data: schemas.Connecti
     db.refresh(profile)
     return profile
 
-@router.delete("/connections/{connection_id}", status_code=204)
+@router.delete("/connections/{connection_id}", status_code=204, dependencies=[Depends(requiere_admin)])
 def delete_connection_profile(connection_id: int, db: Session = Depends(get_db)):
     """Elimina un perfil de conexión."""
     profile = db.query(models_conn.ConnectionProfile).filter(models_conn.ConnectionProfile.id == connection_id).first()

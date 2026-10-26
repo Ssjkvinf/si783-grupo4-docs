@@ -106,7 +106,9 @@ function renderizar(d) {
             <div class="row"><div class="col-lg-6">${tabla('Origen de las ejecuciones', def.por_origen, ['Origen', 'Ejecuciones'],
             d.por_origen.map(o => [escapeHTML(o.descripcion), fmt(o.ejecuciones)]), 'Sin datos.')}</div>
             <div class="col-lg-6">${tabla('Proyectos con actividad', def.proyectos_activos, ['Proyecto', 'Ejecuciones'],
-            d.proyectos.map(p => [escapeHTML(p.nombre), fmt(p.ejecuciones)]), 'Sin datos.')}</div></div>`;
+            d.proyectos.map(p => [escapeHTML(p.nombre), fmt(p.ejecuciones)]), 'Sin datos.')}</div></div>
+            <div class="row"><div class="col-lg-6">${tabla('Ejecuciones por persona', def.por_usuario, ['Usuario', 'Ejecuciones'],
+            (d.por_usuario || []).map(u => [escapeHTML(u.usuario), fmt(u.ejecuciones)]), 'Sin datos.')}</div></div>`;
     }
 
     html += `<div class="row"><div class="col-lg-6">${tabla('Altas en el periodo', def.altas, ['Elemento', 'Creados', 'Total actual'],

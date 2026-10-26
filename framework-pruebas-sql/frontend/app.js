@@ -9,6 +9,7 @@ import { initSuites, formSuite, saveSuite } from './js/modulos/suites.js';
 import { cargarHistorial } from './js/modulos/historial.js';
 import { initInicio, cargarInicio } from './js/modulos/inicio.js';
 import { initUso } from './js/modulos/uso.js';
+import { cargarSesion, cambiarMiContrasena, nuevoUsuario } from './js/modulos/usuarios.js';
 import { descargarPlantilla, importarExcel, exportarCasos, exportarResultados } from './js/modulos/excel.js';
 
 import { setupSidebarLinks, mostrarSeccion } from './js/modulos/navegacion.js';
@@ -47,14 +48,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     initUso(mostrarSeccion);
 
     setupSidebarLinks();
+    await cargarSesion();
 
     try {
         await fetchAPI("/projects/");
-        document.getElementById("api-status").className = "badge bg-success px-3 py-2";
-        document.getElementById("api-status").innerText = "API: En línea";
+        document.getElementById("api-status").className = "estado-api ok";
+        document.getElementById("api-status").innerText = "API en línea";
     } catch (e) {
-        document.getElementById("api-status").className = "badge bg-danger px-3 py-2";
-        document.getElementById("api-status").innerText = "API: Desconectada";
+        document.getElementById("api-status").className = "estado-api mal";
+        document.getElementById("api-status").innerText = "API desconectada";
     }
 
     document.getElementById("select-proyecto-activo").addEventListener("change", (e) => {
@@ -71,10 +73,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("btn-exportar-casos").addEventListener("click", () => exportarCasos());
     document.getElementById("btn-exportar-resultados").addEventListener("click", () => exportarResultados());
     document.getElementById("btn-filtrar-historial").addEventListener("click", () => { estado.histSkip = 0; cargarHistorial(); });
+    ["filtro-hist-status", "filtro-hist-suite", "filtro-hist-case"].forEach(id =>
+        document.getElementById(id).addEventListener("change", () => { estado.histSkip = 0; cargarHistorial(); }));
+    document.getElementById("filtro-hist-por").addEventListener("keydown", (e) => { if (e.key === "Enter") { estado.histSkip = 0; cargarHistorial(); } });
     document.getElementById("btn-hist-prev").addEventListener("click", () => { estado.histSkip = Math.max(0, estado.histSkip - estado.histLimit); cargarHistorial(); });
     document.getElementById("btn-hist-next").addEventListener("click", () => { estado.histSkip += estado.histLimit; cargarHistorial(); });
     document.getElementById("modalPasswordForm").addEventListener("submit", procesarPasswordSubmit);
     document.getElementById("modalGeneralForm").addEventListener("submit", procesarModalGeneralSubmit);
+
+    document.getElementById("btn-cambiar-clave").addEventListener("click", () => cambiarMiContrasena());
+    document.getElementById("btn-ir-usuarios").addEventListener("click", () => mostrarSeccion("usuarios"));
+    document.getElementById("btn-nuevo-usuario").addEventListener("click", () => nuevoUsuario());
 
     document.getElementById("btn-logout").addEventListener("click", async () => {
         try {

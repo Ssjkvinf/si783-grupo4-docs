@@ -196,23 +196,25 @@ pytest -v -m oracle_integration
 <!-- GENERADO:inicio resumen -->
 <!-- Bloque generado por scripts/docs/gen_docs.py; no editar a mano. -->
 
-**Versión de la API:** 2.0.0 · **Operaciones HTTP documentadas (OpenAPI):** 38 · **Tablas de la base interna (SQLite):** 7 · **Archivos de prueba:** 24 · **Funciones `test_` (recuento estático; no prueba que pasen):** 302
+**Versión de la API:** 2.0.0 · **Operaciones HTTP documentadas (OpenAPI):** 53 · **Tablas de la base interna (SQLite):** 8 · **Archivos de prueba:** 32 · **Funciones `test_` (recuento estático; no prueba que pasen):** 367
 
 | Grupo de endpoints | Rutas |
 | --- | --- |
-| Autenticación | 2 |
+| Analizar una tabla | 2 |
+| Asistente de reglas | 2 |
 | Casos de Prueba | 5 |
-| Escenario de demostración | 1 |
+| Escenario de demostración | 2 |
 | Excel | 4 |
-| Historial de Ejecuciones | 2 |
+| Historial de Ejecuciones | 4 |
 | Motor de Ejecución | 4 |
 | Perfiles de Conexión | 6 |
 | Proyectos | 5 |
 | Salud | 1 |
 | Suites de Pruebas | 7 |
 | Uso del producto | 1 |
+| Usuarios y acceso | 10 |
 
-**Tablas de la base interna:** `projects`, `connection_profiles`, `test_cases`, `test_suites`, `usage_events`, `execution_history`, `suite_test_case` (diccionario en [docs/generated/diccionario-datos.md](docs/generated/diccionario-datos.md)).
+**Tablas de la base interna:** `projects`, `users`, `connection_profiles`, `test_cases`, `test_suites`, `usage_events`, `execution_history`, `suite_test_case` (diccionario en [docs/generated/diccionario-datos.md](docs/generated/diccionario-datos.md)).
 
 **Subcomandos de la CLI** (`python -m app.cli`): `export-excel`, `import-excel`, `init-db`, `run`.
 
@@ -237,6 +239,7 @@ pytest -v -m oracle_integration
 - [Publicación en GitHub: autoría, primer push, configuración y primeras ejecuciones](docs/publicacion-github.md)
 - [Referencia SRS y SAD (Software Requirements & Architecture Document)](docs/referencia-srs-sad.md)
 - [Respaldo y Restauración](docs/respaldo-restauracion.md)
+- [Resumen de una página (para explicar el proyecto en 2 minutos)](docs/resumen-una-pagina.md)
 - [Seguridad](docs/seguridad.md)
 - [Tareas propuestas para Gerald](docs/tareas-gerald.md)
 - [Verificación](docs/verificacion.md)

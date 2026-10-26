@@ -7,10 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from app.core.database import get_db
 from app.models import project as models_project
 from app.models import schemas
+from app.security.acceso import requiere_admin
 
 router = APIRouter()
 
-@router.post("/projects/", response_model=schemas.ProjectResponse, status_code=201)
+@router.post("/projects/", response_model=schemas.ProjectResponse, status_code=201, dependencies=[Depends(requiere_admin)])
 def create_project(project: schemas.ProjectCreate, db: Session = Depends(get_db)):
     """Crea un nuevo proyecto."""
     existing = db.query(models_project.Project).filter(models_project.Project.name == project.name).first()
@@ -45,7 +46,7 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Proyecto no encontrado.")
     return db_project
 
-@router.put("/projects/{project_id}", response_model=schemas.ProjectResponse)
+@router.put("/projects/{project_id}", response_model=schemas.ProjectResponse, dependencies=[Depends(requiere_admin)])
 def update_project(project_id: int, project_data: schemas.ProjectUpdate, db: Session = Depends(get_db)):
     """Actualiza la información de un proyecto existente."""
     db_project = db.query(models_project.Project).filter(models_project.Project.id == project_id).first()
@@ -69,7 +70,7 @@ def update_project(project_id: int, project_data: schemas.ProjectUpdate, db: Ses
         raise HTTPException(status_code=409, detail="Error de integridad al actualizar el proyecto.")
     return db_project
 
-@router.delete("/projects/{project_id}", status_code=204)
+@router.delete("/projects/{project_id}", status_code=204, dependencies=[Depends(requiere_admin)])
 def delete_project(project_id: int, db: Session = Depends(get_db)):
     """Elimina un proyecto únicamente si no tiene datos asociados."""
     db_project = db.query(models_project.Project).filter(models_project.Project.id == project_id).first()

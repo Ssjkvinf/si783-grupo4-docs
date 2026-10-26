@@ -66,8 +66,9 @@ classDiagram
         +str name
         +Optional~str~ description
         +str sql_query
-        +ValidationTypeEnum validation_type
+        +Optional~ValidationTypeEnum~ validation_type
         +str expected_result
+        +validacion_automatica(data) Any
         +validate_text(v) str
         +validate_expected(v, info) str
     }
@@ -77,6 +78,7 @@ classDiagram
         +Optional~str~ sql_query
         +Optional~ValidationTypeEnum~ validation_type
         +Optional~str~ expected_result
+        +validacion_automatica(data) Any
         +validate_text(v) Optional~str~
     }
     class TestCaseResponse {
@@ -127,10 +129,13 @@ classDiagram
         +int connection_profile_id
         +str password
         +str sql_query
-        +ValidationTypeEnum validation_type
+        +Optional~ValidationTypeEnum~ validation_type
         +str expected_result
+        +Optional~str~ _motivo_auto
+        +aceptar_auto(data) Any
         +validate_text(v) str
         +validate_expected_for_type()
+        +motivo_validacion_automatica() Optional~str~
     }
     class QuickExecutionResponse {
         +int history_id
@@ -143,6 +148,8 @@ classDiagram
         +str expected_text
         +str obtained_text
         +str reason
+        +bool validation_auto
+        +Optional~str~ validation_reason
         +List~str~ columns
         +Optional~str~ obtained_value
         +List rows
@@ -173,6 +180,10 @@ classDiagram
         +Optional~str~ error_message
         +Optional~str~ trigger_source
         +Optional~str~ run_id
+        +Optional~str~ executed_by
+        +Optional~str~ case_name
+        +Optional~str~ suite_name
+        +Optional~str~ connection_name
     }
     class SuiteCaseResult {
         +int history_id
@@ -186,6 +197,10 @@ classDiagram
         +str reason
         +float duration_ms
         +Optional~str~ error_message
+        +Optional~str~ previous_status
+        +Optional~datetime~ previous_executed_at
+        +Optional~str~ change
+        +Optional~str~ change_text
     }
     class SuiteExecutionSummary {
         +int suite_id
@@ -198,6 +213,8 @@ classDiagram
         +Optional~str~ run_id
         +List~HistoryResponse~ details
         +List~SuiteCaseResult~ case_results
+        +int new_failures
+        +int fixed
     }
     ProjectCreate <|-- ProjectResponse
     TestCaseCreate <|-- TestCaseResponse

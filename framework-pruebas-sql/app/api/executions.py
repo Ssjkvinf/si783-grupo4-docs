@@ -6,6 +6,7 @@ Ya no se acepta un `dsn` ni un `user` libres enviados por el cliente: el destino
 perfiles (campos validados) y, opcionalmente, la lista `ORACLE_ALLOWED_HOSTS`.
 """
 import uuid
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -22,6 +23,9 @@ from app.services.execution_service import (
     serialize_cell,
     describe_scalar
 )
+from app.models.user import User
+from app.security.acceso import nombre_de, usuario_actual
+from app.services import comparacion
 
 router = APIRouter()
 
@@ -78,7 +82,8 @@ def execute_target_sql(request: schemas.ExecutionRequest, db: Session = Depends(
 
 
 @router.post("/execute/quick", response_model=schemas.QuickExecutionResponse)
-def run_quick_check(request: schemas.QuickExecutionRequest, db: Session = Depends(get_db)):
+def run_quick_check(request: schemas.QuickExecutionRequest, db: Session = Depends(get_db),
+                    usuario: Optional[User] = Depends(usuario_actual)):
     """
     Prueba rápida del recorrido guiado: ejecuta UN SELECT contra un perfil de
     conexión guardado, lo compara con lo que el usuario indicó y registra la
@@ -124,7 +129,7 @@ def run_quick_check(request: schemas.QuickExecutionRequest, db: Session = Depend
         record = run_single_test_case_execution(
             db=db, tc=transient_case, executor=executor, suite_id=None,
             connection_profile_id=profile.id, confirm_staging_dml=False, details=details,
-            trigger_source="INICIO", run_id=str(uuid.uuid4()))
+            trigger_source="INICIO", run_id=str(uuid.uuid4()), executed_by=nombre_de(usuario))
     finally:
         executor.disconnect()
 
@@ -150,6 +155,8 @@ def run_quick_check(request: schemas.QuickExecutionRequest, db: Session = Depend
         expected_text=explanation["expected_text"],
         obtained_text=explanation["obtained_text"],
         reason=explanation["reason"],
+        validation_auto=request.motivo_validacion_automatica is not None,
+        validation_reason=request.motivo_validacion_automatica,
         obtained_value=obtained_value if (record.status != "ERROR" and not rows_hidden) else None,
         columns=[] if rows_hidden else list(details.get("columns", [])),
         rows=[[serialize_cell(c) for c in row] for row in shown],
@@ -163,7 +170,8 @@ def run_quick_check(request: schemas.QuickExecutionRequest, db: Session = Depend
 
 
 @router.post("/execute/test-case/{test_case_id}", response_model=schemas.HistoryResponse)
-def run_test_case(test_case_id: int, db_credentials: schemas.TestCaseExecutionRequest, db: Session = Depends(get_db)):
+def run_test_case(test_case_id: int, db_credentials: schemas.TestCaseExecutionRequest, db: Session = Depends(get_db),
+                  usuario: Optional[User] = Depends(usuario_actual)):
     """
     Orquestador Principal: Recupera un caso de prueba guardado y lo ejecuta
     utilizando el servicio centralizado de ejecución.
@@ -203,7 +211,8 @@ def run_test_case(test_case_id: int, db_credentials: schemas.TestCaseExecutionRe
             connection_profile_id=profile_id,
             confirm_staging_dml=db_credentials.confirm_staging_dml,
             trigger_source="UI",
-            run_id=str(uuid.uuid4())
+            run_id=str(uuid.uuid4()),
+            executed_by=nombre_de(usuario)
         )
         return history_record
     finally:
@@ -211,7 +220,8 @@ def run_test_case(test_case_id: int, db_credentials: schemas.TestCaseExecutionRe
 
 
 @router.post("/execute/suite/{suite_id}", response_model=schemas.SuiteExecutionSummary)
-def run_test_suite(suite_id: int, db_credentials: schemas.SuiteExecutionRequest, db: Session = Depends(get_db)):
+def run_test_suite(suite_id: int, db_credentials: schemas.SuiteExecutionRequest, db: Session = Depends(get_db),
+                   usuario: Optional[User] = Depends(usuario_actual)):
     """
     Ejecuta en ráfaga todos los casos de prueba de una Suite utilizando una conexión única.
     Además del detalle de historial, devuelve `case_results` con una explicación legible por caso.
@@ -269,7 +279,8 @@ def run_test_suite(suite_id: int, db_credentials: schemas.SuiteExecutionRequest,
                 confirm_staging_dml=db_credentials.confirm_staging_dml,
                 details=case_details,
                 trigger_source="UI",
-                run_id=summary.run_id
+                run_id=summary.run_id,
+                executed_by=nombre_de(usuario)
             )
 
             summary.total_duration_ms += history_record.duration_ms
@@ -289,6 +300,10 @@ def run_test_suite(suite_id: int, db_credentials: schemas.SuiteExecutionRequest,
                 error_message=history_record.error_message,
                 rows=[] if executor.environment_type == "PRODUCTION" else list(case_details.get("rows", [])),
                 sql=history_record.executed_sql)
+            previo = comparacion.anterior(db, tc.id, history_record.id)
+            cambio = comparacion.clasificar(previo.status if previo else None, history_record.status)
+            summary.new_failures += cambio == "nuevo_fallo"
+            summary.fixed += cambio == "corregido"
             summary.case_results.append(schemas.SuiteCaseResult(
                 history_id=history_record.id,
                 test_case_id=tc.id,
@@ -301,6 +316,10 @@ def run_test_suite(suite_id: int, db_credentials: schemas.SuiteExecutionRequest,
                 reason=explanation["reason"],
                 duration_ms=history_record.duration_ms,
                 error_message=history_record.error_message,
+                previous_status=previo.status if previo else None,
+                previous_executed_at=previo.executed_at if previo else None,
+                change=cambio,
+                change_text=comparacion.CAMBIOS[cambio],
             ))
 
     finally:

@@ -10,7 +10,8 @@ services:
       - oracle_data:/opt/oracle/oradata
       - ./init:/opt/oracle/scripts/startup
     healthcheck:
-      test: ["CMD", "healthcheck.sh"]
+      # La imagen actual de Oracle Free no trae healthcheck.sh en el PATH; checkDBStatus.sh sí (igual que infra/production).
+      test: ["CMD", "/opt/oracle/checkDBStatus.sh"]
       interval: 30s
       timeout: 10s
       retries: 10

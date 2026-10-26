@@ -249,7 +249,7 @@ def test_copia_consistente_genera_manifiesto_con_hash_tamano_e_integridad(base_a
     archivo = destino / manifest["archivo"]
     assert archivo.name.endswith(".sqlite.gz") and archivo.stat().st_size == manifest["tamano_bytes"] > 0
     assert _sha(archivo) == manifest["sha256"]
-    assert manifest["alembic_version"] == "e7c3a91f5b42"
+    assert manifest["alembic_version"] == "a4b8c2d9e1f0"
     assert _sha(base_activa) == antes, "la copia no debe modificar la base de origen"
 
 

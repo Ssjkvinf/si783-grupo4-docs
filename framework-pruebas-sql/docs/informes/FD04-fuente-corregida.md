@@ -45,7 +45,7 @@ Aplicación web (HTML/JavaScript servida por FastAPI). Una persona crea o elige 
 Existe un mecanismo de copia consistente de la SQLite (`scripts/backup/sqlite_backup.py`, API de respaldo de SQLite) y un verificador de restauración aislada (`scripts/backup/sqlite_restore_verify.py`). **Probado en local; no ejecutado en GitHub ni Azure.** Una sola VM: no hay alta disponibilidad; RPO y RTO no están definidos.
 
 ### 3.2 Seguridad
-Cookie de sesión HttpOnly (24 h) con firma HMAC **igual para todas las sesiones**; una sola credencial configurable por variables de entorno; comparación con `secrets.compare_digest`; mensaje genérico «Credenciales inválidas»; **sin límite de intentos**. La contraseña de Oracle no se persiste. Las reglas de SQL y de ambiente se aplican en el backend (`app/security/sql_policy.py`, `app/engine/executor.py`).
+Cuentas individuales con rol `ADMIN` o `TESTER` (tabla `users`); contraseñas con hash PBKDF2-SHA256 y sal; cookie de sesión HttpOnly y SameSite=Strict de 8 h con token firmado (HMAC) distinto por ingreso, que se anula al cerrar sesión o cambiar contraseña/rol; bloqueo de la cuenta tras 5 fallos y límite de 20 fallos por IP; solicitud de cuenta con aprobación del administrador; mensaje genérico «Usuario o contraseña incorrectos». La contraseña de Oracle no se persiste. Las reglas de SQL y de ambiente se aplican en el backend (`app/security/sql_policy.py`, `app/engine/executor.py`).
 
 ### 3.3 Adaptabilidad
 El patrón Strategy (`ValidationStrategy` en `app/engine/validator.py`) separa la comparación, pero la elección de estrategia es un `if/elif` en `app/services/execution_service.py` y el tipo se declara en `app/models/schemas.py`. Agregar `SCALAR_VALUE` exigió cambios en validador, esquema, servicio, explicaciones, interfaz y pruebas. **El soporte de otros motores no está implementado**: `executor.py` usa `oracledb` directamente.
@@ -106,4 +106,4 @@ Figura: `base_datos.mermaid` (7 tablas de la base interna; la tabla de asociaci�
 *Estímulo:* ejecutar SQL contra un perfil PRODUCTION. *Respuesta:* se muestran y guardan solo conteos y mensajes genéricos; los rechazos de política sí se muestran. *Medida:* `tests/test_engine.py::test_production_row_count_and_exists_work_with_hidden_rows`, `tests/test_quick_execution.py::test_quick_produccion_no_muestra_filas` y, con Oracle real local, `tests/test_oracle_phase2.py::test_produccion_oculta_filas_y_no_permite_valor_escalar`.
 
 ## 12. Limitaciones de la arquitectura actual
-Una credencial compartida; token de sesión único; sin límite de intentos; historial editable directamente en la SQLite; análisis SQL léxico; rollback con límites; un solo motor objetivo (Oracle ≥ 12.1); una sola VM.
+Sin recuperación de contraseña por correo ni segundo factor; límite de intentos por IP en memoria; historial editable directamente en la SQLite; análisis SQL léxico; rollback con límites; un solo motor objetivo (Oracle ≥ 12.1); una sola VM.

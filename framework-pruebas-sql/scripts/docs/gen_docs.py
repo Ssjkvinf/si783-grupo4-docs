@@ -75,7 +75,7 @@ def safe_id(s: str) -> str:
 # ----------------------------------------------------------------------------------------------- modelos ORM
 def load_metadata():
     from app.core.database import Base
-    from app.models import project, connection, test_case, suite, history, usage  # noqa: F401
+    from app.models import project, connection, test_case, suite, history, usage, user  # noqa: F401
     return Base
 
 
@@ -517,6 +517,7 @@ NAV_FIJA = [
         ("FD04 (fuente corregida)", "informes/FD04-fuente-corregida.md"),
         ("FD05 Informe final (borrador)", "informes/FD05-informe-final.md"),
     ]),
+    ("Resumen de una página", "resumen-una-pagina.md"),
     ("Problema y objetivos", "problema-y-objetivos.md"),
     ("Estándar de programación", "estandar-programacion.md"),
     ("Manuales", [

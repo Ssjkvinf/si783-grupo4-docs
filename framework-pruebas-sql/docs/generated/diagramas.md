@@ -17,6 +17,19 @@ erDiagram
         DATETIME created_at
         DATETIME updated_at
     }
+    users {
+        INTEGER id PK
+        VARCHAR username
+        VARCHAR full_name
+        VARCHAR password_hash
+        VARCHAR role
+        BOOLEAN active
+        INTEGER failed_attempts
+        DATETIME locked_until
+        INTEGER session_version
+        DATETIME created_at
+        DATETIME last_login_at
+    }
     connection_profiles {
         INTEGER id PK
         INTEGER project_id FK
@@ -77,6 +90,7 @@ erDiagram
         TEXT error_message
         VARCHAR trigger_source
         VARCHAR run_id
+        VARCHAR executed_by
     }
     suite_test_case {
         INTEGER suite_id PK,FK
@@ -158,6 +172,10 @@ classDiagram
         +Text error_message
         +String trigger_source
         +String run_id
+        +String executed_by
+        +case_name()
+        +suite_name()
+        +connection_name()
     }
     class UsageEvent {
         +Integer id
@@ -219,7 +237,16 @@ classDiagram
     class ScalarValueValidation {
         +evaluate(execution_data, expected_value) bool
     }
+    class LimiteDeIntentos {
+        +bloqueada(ip) bool
+        +fallo(ip)
+        +reiniciar(ip)
+    }
+    class AnalisisError {
+    }
     class ExcelError {
+    }
+    class ReglaInvalida {
     }
     ValidationStrategy <|-- RowCountValidation
     ValidationStrategy <|-- ExistenceValidation
@@ -296,8 +323,9 @@ classDiagram
         +str name
         +Optional~str~ description
         +str sql_query
-        +ValidationTypeEnum validation_type
+        +Optional~ValidationTypeEnum~ validation_type
         +str expected_result
+        +validacion_automatica(data) Any
         +validate_text(v) str
         +validate_expected(v, info) str
     }
@@ -307,6 +335,7 @@ classDiagram
         +Optional~str~ sql_query
         +Optional~ValidationTypeEnum~ validation_type
         +Optional~str~ expected_result
+        +validacion_automatica(data) Any
         +validate_text(v) Optional~str~
     }
     class TestCaseResponse {
@@ -357,10 +386,13 @@ classDiagram
         +int connection_profile_id
         +str password
         +str sql_query
-        +ValidationTypeEnum validation_type
+        +Optional~ValidationTypeEnum~ validation_type
         +str expected_result
+        +Optional~str~ _motivo_auto
+        +aceptar_auto(data) Any
         +validate_text(v) str
         +validate_expected_for_type()
+        +motivo_validacion_automatica() Optional~str~
     }
     class QuickExecutionResponse {
         +int history_id
@@ -373,6 +405,8 @@ classDiagram
         +str expected_text
         +str obtained_text
         +str reason
+        +bool validation_auto
+        +Optional~str~ validation_reason
         +List~str~ columns
         +Optional~str~ obtained_value
         +List rows
@@ -403,6 +437,10 @@ classDiagram
         +Optional~str~ error_message
         +Optional~str~ trigger_source
         +Optional~str~ run_id
+        +Optional~str~ executed_by
+        +Optional~str~ case_name
+        +Optional~str~ suite_name
+        +Optional~str~ connection_name
     }
     class SuiteCaseResult {
         +int history_id
@@ -416,6 +454,10 @@ classDiagram
         +str reason
         +float duration_ms
         +Optional~str~ error_message
+        +Optional~str~ previous_status
+        +Optional~datetime~ previous_executed_at
+        +Optional~str~ change
+        +Optional~str~ change_text
     }
     class SuiteExecutionSummary {
         +int suite_id
@@ -428,6 +470,8 @@ classDiagram
         +Optional~str~ run_id
         +List~HistoryResponse~ details
         +List~SuiteCaseResult~ case_results
+        +int new_failures
+        +int fixed
     }
     ProjectCreate <|-- ProjectResponse
     TestCaseCreate <|-- TestCaseResponse
@@ -442,7 +486,7 @@ classDiagram
 ```mermaid
 %% Dependencias entre paquetes, leídas de los import de app/ y alembic/env.py (se omiten FastAPI y, salvo en app.core y alembic, SQLAlchemy por legibilidad).
 flowchart LR
-    nav["Navegador: frontend/ (15 archivos JS)"]
+    nav["Navegador: frontend/ (17 archivos JS)"]
     subgraph APP["Aplicación Python (app/)"]
         app_api["app.api"]
         app_cli["app.cli"]
@@ -476,8 +520,12 @@ flowchart LR
     app_main --> app_api
     app_main --> app_core
     app_main --> app_models
+    app_main --> app_security
     app_models --> app_core
     app_models --> app_security
+    app_models --> app_services
+    app_security --> app_core
+    app_security --> app_models
     app_services --> app_engine
     app_services --> app_models
     app_services --> app_security

@@ -60,6 +60,31 @@ const PLANTILLAS = [
     }
 ];
 
+// Espejo simplificado de app/services/validacion_auto.py, solo para mostrar en vivo qué se va a comparar.
+// La decisión real la toma el servidor y se muestra en el resultado.
+function detectarComparacion(sql, esperado) {
+    const e = (esperado || '').trim().toLowerCase();
+    if (!e) return null;
+    if (['true', 'sí', 'si', 'yes', 'verdadero', 'false', 'no', 'falso'].includes(e)) {
+        return 'si la consulta devuelve alguna fila (usted respondió sí/no)';
+    }
+    const s = (sql || '').trim().replace(/;$/, '');
+    const unico = /^select\s+(distinct\s+)?(count|sum|avg|min|max)\s*\([^,]*\)(\s+(as\s+)?[a-z_][\w$#]*)?\s+from\b/i.test(s)
+        && !/\bgroup\s+by\b/i.test(s.replace(/\([^()]*\)/g, ''));
+    if (unico) return 'el valor que calcula la consulta (COUNT, SUM, AVG, MIN o MAX)';
+    if (/^\d+$/.test(e)) return `la cantidad de filas que devuelve la consulta (${e})`;
+    return 'el valor de la única fila que devuelve la consulta';
+}
+
+function actualizarDeteccion() {
+    const caja = el('inicio-auto-detectado');
+    if (el('inicio-validacion').value !== 'AUTO') { caja.innerHTML = ''; return; }
+    const d = detectarComparacion(el('inicio-sql').value, el('inicio-esperado-auto').value);
+    caja.innerHTML = d
+        ? `<i class="bi bi-stars me-1"></i>Se comparará <b>${escapeHTML(d)}</b>. ¿No es lo que quiere? Elija el tipo a mano en la lista.`
+        : '<i class="bi bi-info-circle me-1"></i>Escriba lo que espera: un número (filas o valor), sí/no o un texto. La aplicación decide cómo compararlo.';
+}
+
 const AVISO_COUNT = 'Atención: su consulta usa COUNT(...). «Cantidad de filas» comprueba cuántas filas devuelve la consulta (un COUNT devuelve siempre 1), no el número que calcula. Para comparar ese número elija «Valor que devuelve la consulta».';
 
 let irASeccion = null;
@@ -79,8 +104,9 @@ export function initInicio(irA, alEjecutar) {
     selPlantilla.addEventListener('change', aplicarPlantilla);
 
     el('inicio-conexion').addEventListener('change', actualizarAvisoEntorno);
-    el('inicio-validacion').addEventListener('change', () => { actualizarCampoEsperado(); actualizarAvisoCount(); });
-    el('inicio-sql').addEventListener('input', actualizarAvisoCount);
+    el('inicio-validacion').addEventListener('change', () => { actualizarCampoEsperado(); actualizarAvisoCount(); actualizarDeteccion(); });
+    el('inicio-sql').addEventListener('input', () => { actualizarAvisoCount(); actualizarDeteccion(); });
+    el('inicio-esperado-auto').addEventListener('input', actualizarDeteccion);
     el('inicio-btn-usar-valor').addEventListener('click', () => {
         el('inicio-validacion').value = 'SCALAR_VALUE';
         actualizarCampoEsperado(); actualizarAvisoCount();
@@ -92,8 +118,13 @@ export function initInicio(irA, alEjecutar) {
     el('inicio-btn-cargar-demo').addEventListener('click', cargarSuitesDemo);
     el('inicio-btn-suite-reglas').addEventListener('click', () => ejecutarSuite('rules'));
     el('inicio-btn-suite-ejemplos').addEventListener('click', () => ejecutarSuite('examples'));
+    el('inicio-btn-guiada').addEventListener('click', ejecutarDemoGuiada);
+    el('inicio-regla').addEventListener('change', mostrarCamposRegla);
+    el('inicio-regla-usar').addEventListener('click', usarRegla);
+    cargarCatalogoReglas();
     actualizarCampoEsperado();
     actualizarAvisoCount();
+    actualizarDeteccion();
 }
 
 export async function cargarInicio() {
@@ -117,7 +148,9 @@ export async function cargarInicio() {
     }
 
     if (estado.conexiones.length === 0) {
-        sel.innerHTML = '<option value="">Aún no hay conexiones: cree una con «Nueva conexión»</option>';
+        sel.innerHTML = document.body.classList.contains('rol-tester')
+            ? '<option value="">Aún no hay conexiones: pida a un administrador que cree una</option>'
+            : '<option value="">Aún no hay conexiones: cree una con «Nueva conexión»</option>';
     } else {
         sel.innerHTML = estado.conexiones
             .map(c => `<option value="${c.id}">${escapeHTML(c.name)} (${escapeHTML(c.environment_type)})</option>`).join('');
@@ -162,6 +195,7 @@ function aplicarPlantilla() {
 
 function actualizarCampoEsperado() {
     const v = el('inicio-validacion').value;
+    el('inicio-esperado-auto').classList.toggle('hidden', v !== 'AUTO');
     el('inicio-esperado-num').classList.toggle('hidden', v !== 'ROW_COUNT');
     el('inicio-esperado-valor').classList.toggle('hidden', v !== 'SCALAR_VALUE');
     el('inicio-esperado-bool').classList.toggle('hidden', v !== 'EXISTS');
@@ -176,6 +210,7 @@ function actualizarAvisoCount() {
 
 function valorEsperadoIndicado() {
     const v = el('inicio-validacion').value;
+    if (v === 'AUTO') return el('inicio-esperado-auto').value.trim();
     if (v === 'EXISTS') return el('inicio-esperado-bool').value;
     if (v === 'SCALAR_VALUE') return el('inicio-esperado-valor').value.trim();
     return el('inicio-esperado-num').value.trim();
@@ -227,7 +262,7 @@ async function ejecutarComprobacion() {
                 connection_profile_id: parseInt(dc.conn.id),
                 password: dc.password,
                 sql_query: sql,
-                validation_type: validacion,
+                ...(validacion === 'AUTO' ? {} : { validation_type: validacion }),
                 expected_result: esperado
             })
         });
@@ -262,15 +297,16 @@ function mostrarResultado(res) {
     const contenedor = el('inicio-resultado');
 
     contenedor.innerHTML = `
-        <div class="card">
+        <div class="card resultado resultado-${String(res.status || 'ERROR').toLowerCase()}">
             <div class="card-body">
-                <div class="alert ${clase} d-flex align-items-center mb-3" role="status">
+                <div class="alert ${clase} veredicto d-flex align-items-center mb-3" role="status">
                     <i class="bi ${icono} fs-4 me-3"></i><strong class="fs-5">${escapeHTML(titulo)}</strong>
                 </div>
                 <dl class="row mb-3">
                     <dt class="col-sm-3">Lo que esperabas</dt><dd class="col-sm-9">${escapeHTML(res.expected_text)}</dd>
                     <dt class="col-sm-3">Lo que se obtuvo</dt><dd class="col-sm-9">${escapeHTML(res.obtained_text)}</dd>
                     <dt class="col-sm-3">Por qué</dt><dd class="col-sm-9">${escapeHTML(res.reason)}</dd>
+                    ${res.validation_auto ? `<dt class="col-sm-3">Cómo se comparó</dt><dd class="col-sm-9"><i class="bi bi-stars text-primary me-1"></i>${escapeHTML(res.validation_reason)}</dd>` : ''}
                 </dl>
                 ${res.status === 'ERROR' ? '' : `<h6 class="text-secondary">Datos devueltos por la consulta</h6>${tablaFilas(res)}`}
                 <div class="d-flex flex-wrap gap-2 mt-3">
@@ -316,6 +352,156 @@ function guardarComoCaso() {
         advertencia: u.status === 'PASS' ? null :
             `Esta comprobación terminó en ${u.status}. Antes de guardarla, revise si el valor esperado es el correcto o si el dato tiene un problema.`
     });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Demostración guiada: el servidor ejecuta tres suites (reglas, FAIL/ERROR, control de cambios) y dice si cada caso dio lo esperado.
+// ---------------------------------------------------------------------------------------------
+
+async function ejecutarDemoGuiada() {
+    mostrarAlerta('');
+    const cont = el('inicio-guiada-resultado');
+    const dc = datosConexion();
+    if (!dc) { cont.classList.remove('hidden'); cont.innerHTML = `<div class="alert alert-warning mb-0">${escapeHTML(el('inicio-alerta').textContent || 'Complete el paso 1: conexión TEST y contraseña.')}</div>`; return; }
+    const btn = el('inicio-btn-guiada');
+    btn.disabled = true;
+    cont.classList.remove('hidden');
+    cont.innerHTML = '<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Ejecutando la demostración…</p>';
+    try {
+        const res = await fetchAPI('/demo/guided', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ connection_profile_id: parseInt(dc.conn.id), password: dc.password })
+        });
+        mostrarDemoGuiada(res);
+        if (alEjecutarFn) alEjecutarFn();
+        await detectarSuitesDemo();
+    } catch (err) {
+        cont.innerHTML = `<div class="alert alert-danger mb-0">${escapeHTML(typeof err.message === 'string' ? err.message : 'No se pudo ejecutar la demostración.')}</div>`;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function mostrarDemoGuiada(res) {
+    const insignia = { PASS: 'bg-success', FAIL: 'bg-warning text-dark', ERROR: 'bg-danger' };
+    const pasos = res.pasos.map(p => {
+        const filas = p.casos.map(c => `
+            <tr>
+                <td><strong>${escapeHTML(c.case_name)}</strong><div class="small text-muted">${escapeHTML(c.reason)}</div></td>
+                <td><span class="badge ${insignia[c.status] || 'bg-secondary'}">${escapeHTML(c.status)}</span></td>
+                <td>${c.como_se_esperaba
+                    ? '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>como se esperaba</span>'
+                    : `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>se esperaba ${escapeHTML(c.estado_esperado_por_el_guion || '—')}</span>`}</td>
+            </tr>`).join('');
+        return `
+            <h6 class="fw-bold mt-3 mb-1">${escapeHTML(p.titulo)}
+                <small class="text-muted fw-normal">· ${p.passed} PASS · ${p.failed} FAIL · ${p.errors} ERROR</small></h6>
+            <p class="small text-muted mb-2">${escapeHTML(p.descripcion)}</p>
+            <div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0">
+                <thead class="table-light"><tr><th>Comprobación</th><th>Resultado</th><th>Según el guion</th></tr></thead><tbody>${filas}</tbody></table></div>`;
+    }).join('');
+    el('inicio-guiada-resultado').innerHTML = `
+        <div class="alert ${res.todo_como_se_esperaba ? 'alert-success' : 'alert-warning'} mb-0">
+            <strong>${res.todo_como_se_esperaba ? 'Todo salió como la demostración espera.' : 'Algo salió distinto de lo esperado.'}</strong>
+            ${res.todo_como_se_esperaba ? '' : ' Revise que la tabla FRAMEWORK_TEST_ITEMS tenga los datos de ejemplo (5 productos, 4 activos).'}
+            <span class="small">Conexión «${escapeHTML(res.conexion)}» (${escapeHTML(res.ambiente)}). Cada ejecución quedó en el historial.</span>
+        </div>
+        ${pasos}
+        <p class="small text-muted mt-3 mb-0">El «ERROR» del DROP es el resultado correcto: la aplicación lo rechaza antes de llegar a Oracle. Bloquear DROP es un control de seguridad; el beneficio principal es repetir comprobaciones y conservar su evidencia.</p>`;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Asistente de reglas: el servidor (/api/rules/*) convierte una regla común en SELECT + validación + esperado.
+// El SQL se genera y se valida en el servidor; aquí solo se muestran los campos y la vista previa.
+// ---------------------------------------------------------------------------------------------
+
+let reglas = [];
+let reglaConstruida = null;
+let temporizadorRegla = null;
+
+async function cargarCatalogoReglas() {
+    const sel = el('inicio-regla');
+    try {
+        reglas = await fetchAPI('/rules/templates') || [];
+    } catch (e) {
+        reglas = [];
+    }
+    if (!reglas.length) {
+        sel.innerHTML = '<option value="">El asistente no está disponible; use un ejemplo o escriba su SELECT</option>';
+        return;
+    }
+    sel.innerHTML = '<option value="">Elija una regla…</option>' +
+        reglas.map(r => `<option value="${escapeHTML(r.id)}">${escapeHTML(r.titulo)}</option>`).join('');
+}
+
+function reglaSeleccionada() {
+    return reglas.find(r => r.id === el('inicio-regla').value) || null;
+}
+
+function mostrarCamposRegla() {
+    const r = reglaSeleccionada();
+    const campos = el('inicio-regla-campos');
+    reglaConstruida = null;
+    el('inicio-regla-usar').disabled = true;
+    el('inicio-regla-vista').classList.add('hidden');
+    el('inicio-regla-error').classList.add('hidden');
+    if (!r) { el('inicio-regla-desc').textContent = ''; campos.innerHTML = ''; return; }
+    el('inicio-regla-desc').textContent = r.descripcion;
+    campos.innerHTML = r.parametros.map(p => `
+        <div class="col-md-4">
+            <label class="form-label small mb-0">${escapeHTML(p.etiqueta)}</label>
+            <input type="text" class="form-control form-control-sm" data-regla-param="${escapeHTML(p.nombre)}"
+                   value="${escapeHTML(p.ejemplo)}" placeholder="${escapeHTML(p.ayuda || '')}" autocomplete="off">
+        </div>`).join('');
+    campos.querySelectorAll('[data-regla-param]').forEach(i => i.addEventListener('input', programarVistaPrevia));
+    construirRegla();
+}
+
+function programarVistaPrevia() {
+    clearTimeout(temporizadorRegla);
+    temporizadorRegla = setTimeout(construirRegla, 300);
+}
+
+async function construirRegla() {
+    const r = reglaSeleccionada();
+    if (!r) return;
+    const params = {};
+    el('inicio-regla-campos').querySelectorAll('[data-regla-param]').forEach(i => { params[i.dataset.reglaParam] = i.value.trim(); });
+    const err = el('inicio-regla-error');
+    try {
+        const res = await fetchAPI('/rules/build', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rule_id: r.id, params })
+        });
+        reglaConstruida = res;
+        err.classList.add('hidden');
+        el('inicio-regla-sql').textContent = res.sql;
+        el('inicio-regla-explica').innerHTML = `<b>Se comprobará:</b> ${escapeHTML(res.explicacion)}`;
+        el('inicio-regla-vista').classList.remove('hidden');
+        el('inicio-regla-usar').disabled = false;
+    } catch (e) {
+        reglaConstruida = null;
+        el('inicio-regla-vista').classList.add('hidden');
+        el('inicio-regla-usar').disabled = true;
+        err.textContent = (e && typeof e.message === 'string') ? e.message : 'Revise los datos de la regla.';
+        err.classList.remove('hidden');
+    }
+}
+
+function usarRegla() {
+    const b = reglaConstruida;
+    if (!b) return;
+    el('inicio-sql').value = b.sql;
+    el('inicio-validacion').value = b.validation_type;
+    actualizarCampoEsperado();
+    if (b.validation_type === 'EXISTS') el('inicio-esperado-bool').value = b.expected_result;
+    else if (b.validation_type === 'SCALAR_VALUE') el('inicio-esperado-valor').value = b.expected_result;
+    else el('inicio-esperado-num').value = b.expected_result;
+    el('inicio-plantilla').value = '';
+    el('inicio-plantilla-nota').textContent = 'Regla del asistente: ' + b.explicacion + ' Puede ejecutarla tal cual o ajustar la consulta.';
+    actualizarAvisoCount();
+    ocultarResultado();
+    el('inicio-btn-ejecutar').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ---------------------------------------------------------------------------------------------

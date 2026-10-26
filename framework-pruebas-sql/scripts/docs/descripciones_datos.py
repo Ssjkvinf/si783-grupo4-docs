@@ -16,6 +16,7 @@ TABLAS = {
     "suite_test_case": "Tabla de asociación muchos-a-muchos entre suites y casos.",
     "execution_history": "Historial: evidencia de cada ejecución (qué se ejecutó, qué se esperaba, qué se obtuvo, estado y duración).",
     "usage_events": "Eventos de uso que no son ejecuciones (importar o exportar Excel). Alimenta la sección «Otras acciones» del dashboard.",
+    "users": "Usuarios de la aplicación con su rol (ADMIN o TESTER). Guarda solo el hash de la contraseña, nunca la contraseña.",
 }
 
 COLUMNAS = {
@@ -77,6 +78,7 @@ COLUMNAS = {
     "execution_history.error_message": "Motivo del ERROR (en PRODUCTION se oculta salvo los rechazos de política).",
     "execution_history.trigger_source": "Origen: UI (módulos Casos/Suites), INICIO (recorrido guiado), CLI o GITHUB_ACTIONS. Vacío en registros anteriores a la Fase 4.",
     "execution_history.run_id": "Identificador de corrida: todas las filas de una misma ejecución de suite o de la CLI lo comparten.",
+    "execution_history.executed_by": "Usuario que lanzó la ejecución, o «cli» / «github-actions». Vacío sin control de acceso o en registros anteriores a los usuarios.",
     # --- usage_events
     "usage_events.id": "Identificador del evento.",
     "usage_events.event_type": "Tipo de evento (p. ej. importación o exportación de Excel).",
@@ -84,6 +86,18 @@ COLUMNAS = {
     "usage_events.source": "Origen del evento: UI, CLI o API.",
     "usage_events.detail": "Detalle breve (máximo 500 caracteres). No guarda contenido de archivos ni datos personales.",
     "usage_events.created_at": "Fecha y hora del evento (UTC, con zona horaria).",
+    # --- users
+    "users.id": "Identificador del usuario.",
+    "users.username": "Nombre de usuario para ingresar. Único; empieza con una letra (3 a 50 caracteres).",
+    "users.full_name": "Nombre completo para mostrar (opcional).",
+    "users.password_hash": "Hash PBKDF2-SHA256 con sal de la contraseña (formato pbkdf2_sha256$iteraciones$sal$hash). La contraseña no se guarda.",
+    "users.role": "Rol: ADMIN (administra usuarios, proyectos y conexiones) o TESTER (crea y ejecuta casos y suites).",
+    "users.active": "Si puede ingresar. Las solicitudes de cuenta quedan inactivas hasta que un ADMIN las aprueba.",
+    "users.failed_attempts": "Intentos fallidos seguidos. Al llegar a 5 la cuenta se bloquea 15 minutos y el contador vuelve a 0.",
+    "users.locked_until": "Hasta cuándo está bloqueada la cuenta por intentos fallidos (UTC). Vacío si no está bloqueada.",
+    "users.session_version": "Versión de sesión: sube al cerrar sesión, cambiar la contraseña, el rol o desactivar la cuenta, y anula los tokens anteriores.",
+    "users.created_at": "Fecha y hora de creación o de la solicitud (UTC, con zona horaria).",
+    "users.last_login_at": "Último ingreso correcto (UTC, con zona horaria).",
 }
 
 # Objetos Oracle de la demostración (versionados con Liquibase; NO son de la SQLite interna).

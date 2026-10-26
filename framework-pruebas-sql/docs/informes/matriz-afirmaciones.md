@@ -33,7 +33,7 @@ Evidencia: rutas relativas a `framework-pruebas-sql/`. «Oracle real local» = O
 | 3.21 | V.3.a Objetos entidad | «datos persistentes, como reactivos, materiales y usuarios» | No hay tabla de usuarios (`docs/generated/diccionario-datos.md`) | Falso/ajeno | Proyectos, perfiles, casos, suites, historial, eventos de uso |
 | 3.22 | Conclusiones | «garantizando en todo momento la integridad de los datos mediante rollback obligatorio» | Rollback es un control, con límites (ver 3.14) | Falso (sobreafirmación) | Reescrito |
 | 3.23 | Conclusiones | «optimiza el tiempo» y «reduce de forma significativa el riesgo» | Sin medición (`protocolo-usabilidad.md` pendiente) | No comprobado | Convertir en hipótesis H1–H3 |
-| 3.24 | Conclusiones | Historial «completamente trazable … auditable» | Ver 3.16; un solo usuario compartido: no hay quién ejecutó | Parcial | «Trazable por caso, suite, perfil, origen y fecha; sin identidad por persona» |
+| 3.24 | Conclusiones | Historial «completamente trazable … auditable» | Ver 3.16; desde las cuentas individuales cada ejecución guarda quién la lanzó (`executed_by`); las anteriores no | Parcial | «Trazable por caso, suite, perfil, origen, fecha y usuario (desde que existen cuentas); la SQLite sigue siendo editable» |
 | 3.25 | Recomendaciones | Notificaciones y reportes exportables como futuro | Reportes exportables ya existen (Excel, CLI: Markdown/JUnit/JSON) | Desactualizado | Mover a lo implementado; dejar notificaciones como futuro |
 
 ## B. FD04 — Arquitectura de software

@@ -288,7 +288,8 @@ def cmd_run(args, session_factory) -> int:
                 details: Dict[str, Any] = {}
                 rec = run_single_test_case_execution(
                     db=db, tc=tc, executor=executor, suite_id=suite.id if suite else None, connection_profile_id=profile.id,
-                    confirm_staging_dml=args.confirm_staging_dml, details=details, trigger_source=source, run_id=run_id)
+                    confirm_staging_dml=args.confirm_staging_dml, details=details, trigger_source=source, run_id=run_id,
+                    executed_by="github-actions" if source == "GITHUB_ACTIONS" else "cli")
                 rows = [] if executor.environment_type == "PRODUCTION" else list(details.get("rows", []))
                 ex = explain_execution(rec.status, rec.validation_type, rec.expected_result, rec.rowcount or 0,
                                        rec.error_message, rows=rows, sql=rec.executed_sql)
