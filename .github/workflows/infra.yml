@@ -83,6 +83,12 @@ jobs:
         id: validate
         run: terraform validate
 
+      # Plan simulado (mock_provider, sin Azure ni credenciales): la configuración por defecto solo lee la VM existente
+      # y crea el almacenamiento de copias; una VM nueva exige confirmación explícita. Ver infra/terraform/tests/.
+      - name: terraform test (proveedor simulado)
+        id: tftest
+        run: terraform test -no-color
+
       - uses: terraform-linters/setup-tflint@v4
         continue-on-error: true
       - name: tflint (informativo)
@@ -101,6 +107,7 @@ jobs:
             echo "| --- | --- |"
             echo "| terraform fmt -check | ${{ steps.fmt.outcome }} |"
             echo "| terraform validate | ${{ steps.validate.outcome }} |"
+            echo "| terraform test (plan simulado: no toca la VM) | ${{ steps.tftest.outcome }} |"
             echo
             echo "Esta validación **no usa Azure ni credenciales**: comprueba sintaxis y reglas de las variables, no el estado real de la nube."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -158,6 +165,9 @@ jobs:
       TF_VAR_existing_vm_size: ${{ vars.AZURE_VM_SIZE }}
       TF_VAR_backup_storage_account_name: ${{ vars.BACKUP_STORAGE_ACCOUNT }}
       TF_VAR_backup_retention_days: ${{ vars.BACKUP_RETENTION_DAYS || '30' }}
+      # Presupuesto opcional (solo alertas por correo): sin BUDGET_AMOUNT o sin BUDGET_ALERT_EMAILS no se crea.
+      TF_VAR_budget_amount: ${{ vars.BUDGET_AMOUNT || '0' }}
+      TF_VAR_budget_alert_emails: ${{ vars.BUDGET_ALERT_EMAILS || '[]' }}
     defaults:
       run:
         shell: bash

@@ -4,8 +4,9 @@ Resumen legible de un plan de Terraform (entrada: `terraform show -json tfplan`)
 
 Sirve de control de seguridad antes de aplicar cambios:
   - cuenta lo que se crea, cambia y elimina;
-  - BLOQUEA (código de salida 2) si el plan elimina o reemplaza algo, o si toca una VM
-    (una VM existente nunca debe cambiar por este flujo);
+  - BLOQUEA (código de salida 2) si el plan elimina o reemplaza algo, si modifica una VM o cualquier recurso que la
+    acompaña (disco, tarjeta de red, IP pública, NSG, red, extensiones, grupo de recursos), o si trae una acción que
+    este script no conoce (p. ej. «forget»): una VM existente nunca debe cambiar por este flujo;
   - deja claro cuándo no hay cambios.
 
 Uso: python terraform_plan_report.py --plan tfplan.json --out plan_report.md [--fmt ok|fallo] [--validate ok|fallo]
@@ -18,6 +19,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 VM_TYPES = {"azurerm_linux_virtual_machine", "azurerm_windows_virtual_machine", "azurerm_virtual_machine"}
+# Recursos de los que depende una VM en marcha: en este flujo solo pueden CREARSE (modo VM nueva), nunca modificarse ni borrarse.
+VM_RELATED_TYPES = VM_TYPES | {
+    "azurerm_resource_group", "azurerm_managed_disk", "azurerm_virtual_machine_data_disk_attachment",
+    "azurerm_network_interface", "azurerm_public_ip", "azurerm_network_security_group", "azurerm_network_security_rule",
+    "azurerm_virtual_network", "azurerm_subnet", "azurerm_subnet_network_security_group_association",
+    "azurerm_network_interface_security_group_association", "azurerm_virtual_machine_extension",
+}
+KNOWN_ACTIONS = {"no-op", "read", "create", "update", "delete"}
 
 
 def classify(actions: List[str]) -> str:
@@ -42,8 +51,12 @@ def analyze(plan: Dict[str, Any]) -> Dict[str, Any]:
         rows.append((rc["address"], rc["type"], label))
         if label in ("REEMPLAZO", "ELIMINACIÓN"):
             problems.append(f"`{rc['address']}`: {label}")
-        if rc["type"] in VM_TYPES and label != "sin cambios" and "create" not in rc["change"]["actions"]:
-            problems.append(f"`{rc['address']}`: cambia una VM existente ({label})")
+        actions = rc["change"]["actions"]
+        if rc["type"] in VM_RELATED_TYPES and label not in ("sin cambios", "creación", "REEMPLAZO", "ELIMINACIÓN"):
+            problems.append(f"`{rc['address']}`: cambia la VM o un recurso del que depende ({label})")
+        desconocidas = [a for a in actions if a not in KNOWN_ACTIONS]
+        if desconocidas:
+            problems.append(f"`{rc['address']}`: acción no reconocida ({'/'.join(desconocidas)}); revise el plan a mano")
     counts = Counter(r[2] for r in rows)
     return {"rows": rows, "counts": counts, "problems": problems}
 
