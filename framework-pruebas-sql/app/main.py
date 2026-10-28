@@ -12,7 +12,7 @@ from app.core.database import engine, Base, SessionLocal
 from app.models import project, connection, test_case, suite, history, usage, user
 from app.api import projects, connections, test_cases, suites, executions, demo, usage as api_usage, excel as api_excel, history as api_history, rules as api_rules, users as api_users, analysis as api_analysis
 from app.security.acceso import usuario_actual
-from app.security.auth import leer_token
+from app.security.auth import configuracion_insegura, leer_token
 # La creación del esquema y el Proyecto general se delega a las migraciones de Alembic (alembic upgrade head).
 
 app = FastAPI(
@@ -72,6 +72,9 @@ async def _controlar_acceso(request: Request, call_next):
     session_secret = os.getenv("APP_SESSION_SECRET", "").strip()
     if not expected_username or not expected_password or not session_secret:
         return JSONResponse(status_code=503, content={"detail": "Service Unavailable: Incomplete configuration"})
+    motivo = configuracion_insegura(session_secret, expected_password)
+    if motivo:
+        return JSONResponse(status_code=503, content={"detail": f"Service Unavailable: {motivo}"})
 
     path = request.url.path
 

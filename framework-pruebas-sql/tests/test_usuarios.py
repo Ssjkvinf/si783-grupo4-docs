@@ -207,6 +207,43 @@ def test_cabeceras_de_seguridad():
     assert r.headers["X-Frame-Options"] == "DENY"
 
 
+@pytest.mark.parametrize("variable,valor", [("APP_SESSION_SECRET", "default_insecure_secret_replace_in_prod"),
+                                            ("APP_SESSION_SECRET", "secreto_ficticio_largo_y_complejo"),
+                                            ("APP_ACCESS_PASSWORD", "contrasena_ficticia")])
+def test_los_valores_de_ejemplo_publicados_no_sirven_en_serio(monkeypatch, variable, valor):
+    monkeypatch.setenv(variable, valor)
+    r = TestClient(app).get("/health")
+    assert r.status_code == 503 and variable in r.json()["detail"]
+    assert valor not in r.text
+    assert TestClient(app).post("/api/login", json={"username": ADMIN, "password": CLAVE_ADMIN}).status_code == 503
+
+
+def test_usuario_inexistente_cuesta_lo_mismo_que_uno_real(monkeypatch):
+    iteraciones = []
+    original = auth.hashlib.pbkdf2_hmac
+
+    def espia(alg, clave, sal, n, *a):
+        iteraciones.append(n)
+        return original(alg, clave, sal, n, *a)
+
+    monkeypatch.setattr(auth.hashlib, "pbkdf2_hmac", espia)
+    real = auth.hash_password("Una clave 123")
+    iteraciones.clear()
+    auth.verify_password("otra", real)
+    auth.verify_password("otra", None)
+    assert iteraciones[0] == iteraciones[-1] == auth._iteraciones()
+
+
+def test_produccion_confia_solo_en_caddy_para_la_ip_del_visitante():
+    import yaml
+    from pathlib import Path
+    compose = yaml.safe_load(Path("infra/production/compose.yml").read_text(encoding="utf-8"))
+    api = compose["services"]["api"]
+    assert "ports" not in api, "la API no debe publicar puertos: solo Caddy la alcanza"
+    assert any(e.startswith("FORWARDED_ALLOW_IPS=") for e in api["environment"])
+    assert "--proxy-headers" in Path("scripts/start_production.sh").read_text(encoding="utf-8")
+
+
 def test_la_interfaz_se_revalida_para_no_quedarse_con_js_viejo():
     c, _ = _ingresar()
     assert c.get("/ui/app.js").headers.get("cache-control") == "no-cache"

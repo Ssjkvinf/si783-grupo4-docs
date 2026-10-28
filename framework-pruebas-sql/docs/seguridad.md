@@ -8,12 +8,30 @@ Con `APP_ACCESS_ENABLED=true` la aplicación exige ingresar con una cuenta indiv
 - **Solicitud de cuenta:** la pantalla de ingreso permite «Solicitar acceso». La cuenta queda como `TESTER` **inactiva** hasta que un `ADMIN` la aprueba. Se desactiva con `APP_REGISTRATION_ENABLED=false`. Máximo 10 solicitudes por IP y hora.
 - **Contraseñas:** solo se guarda un hash PBKDF2-HMAC-SHA256 con sal aleatoria (`PASSWORD_HASH_ITERATIONS`, por defecto 260 000) y se comparan en tiempo constante. Política: al menos 10 caracteres, letras y números, sin contener el usuario.
 - **Sesión:** cookie `HttpOnly`, `SameSite=Strict`, `Secure` cuando `ENVIRONMENT=production`, válida 8 horas. El token va firmado con `APP_SESSION_SECRET` (HMAC-SHA256), es distinto en cada ingreso y lleva la «versión de sesión» del usuario: cerrar sesión, cambiar la contraseña o el rol, o desactivar la cuenta anula los tokens anteriores.
-- **Fuerza bruta:** 5 fallos seguidos bloquean la cuenta 15 minutos (423); 20 fallos desde una misma IP en 15 minutos devuelven 429. El mensaje es el mismo para usuario inexistente y contraseña incorrecta. Los contadores por IP viven en memoria y se reinician con el proceso.
+- **Fuerza bruta:** 5 fallos seguidos bloquean la cuenta 15 minutos (423); 20 fallos desde una misma IP en 15 minutos devuelven 429. El mensaje y el tiempo de respuesta son los mismos para usuario inexistente y contraseña incorrecta (el hash de relleno usa las mismas iteraciones). Los contadores por IP viven en memoria y se reinician con el proceso. Detrás de Caddy la IP real llega en `X-Forwarded-For`: la API no publica puertos y confía en ese encabezado con `FORWARDED_ALLOW_IPS` (`infra/production/compose.yml`) y `--proxy-headers` (`scripts/start_production.sh`); sin eso todos los visitantes compartirían la IP de Caddy y 20 fallos de cualquiera bloquearían el ingreso a todos.
+- **Valores de ejemplo:** si `APP_SESSION_SECRET` o `APP_ACCESS_PASSWORD` tienen los valores de ejemplo publicados en `.env.example` o `infra/production/.env.production.example`, la aplicación responde 503 con el motivo (sin mostrar el valor) en lugar de arrancar con credenciales conocidas.
 - **Reglas de administración:** nadie puede quitarse el rol de administrador ni desactivarse a sí mismo, y siempre queda al menos un administrador activo.
 - **Trazabilidad:** cada ejecución guarda `executed_by` (usuario, `cli` o `github-actions`); el panel «Uso del producto» muestra ejecuciones por persona.
 - **Cabeceras:** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` y `Permissions-Policy`.
 - Las contraseñas de Oracle se solicitan explícitamente durante el runtime y nunca se guardan en `framework_interno.db` ni en el navegador.
 - **Límites:** no hay recuperación de contraseña por correo (la asigna un administrador) ni segundo factor; el bloqueo por IP no se comparte entre varias réplicas del servicio.
+
+## Cuentas en producción (Azure)
+
+**Recomendación: `APP_REGISTRATION_ENABLED=false` en producción.** Es el valor por defecto de `infra/production/compose.yml` y de `.env.production.example`: la opción «Solicitar acceso» desaparece del uso real y las cuentas las crea un administrador. Con `true`, cualquiera en Internet puede enviar solicitudes (quedan inactivas hasta aprobarlas, pero llenan la lista). Ábrala solo durante una demostración y vuelva a cerrarla.
+
+**Primer administrador:** `APP_ACCESS_USERNAME` y `APP_ACCESS_PASSWORD` del `.env.production` de la VM. Se crea en el primer ingreso; después cambie su contraseña desde la aplicación («Cambiar mi contraseña»). Los valores de ejemplo publicados hacen que la aplicación responda 503.
+
+**Crear las cuentas de Gerald y del docente** (las crea Kevin, ya como ADMIN, desde la interfaz; ninguna contraseña viaja por GitHub ni por chat):
+
+1. Ingrese a la URL pública con el administrador.
+2. Menú de su nombre (arriba a la derecha) → **Usuarios y permisos** → **Nuevo usuario**.
+3. Complete nombre, usuario (p. ej. `gerald.zevallos`, `docente`) y una contraseña inicial de al menos 10 caracteres con letras y números.
+4. Rol: **Administrador** para Gerald (coadministra proyectos, conexiones y cuentas); para el docente, **Tester** si solo revisará y ejecutará, o **Administrador** si debe poder ver y cambiar la configuración.
+5. Entregue la contraseña inicial en persona o por un canal privado, y pida que la cambien en su primer ingreso («Cambiar mi contraseña»).
+6. Si alguien olvida su contraseña: **Usuarios y permisos** → icono de llave → contraseña nueva (cierra sus sesiones).
+
+Alternativa con el registro abierto temporalmente: ponga `APP_REGISTRATION_ENABLED=true`, recree solo la API (`docker compose ... up -d --no-deps api`), deje que cada persona use «Solicitar acceso», apruebe en **Usuarios y permisos** (cambiando el rol si corresponde) y vuelva a `false`.
 
 ## Motor de Políticas SQL (`sql_policy.py`)
 El motor de validación se divide en 3 anillos de seguridad implementados con `sqlparse`:

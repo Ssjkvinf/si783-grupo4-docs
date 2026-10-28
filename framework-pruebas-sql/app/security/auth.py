@@ -44,10 +44,21 @@ def hash_password(password: str) -> str:
     return "pbkdf2_sha256${}${}${}".format(n, base64.b64encode(sal).decode(), base64.b64encode(h).decode())
 
 
+_HASH_DE_RELLENO: Dict[int, str] = {}
+
+
+def _hash_de_relleno() -> str:
+    """Hash con las MISMAS iteraciones que los reales: si el usuario no existe, verificar tarda lo mismo (no se puede adivinar por el tiempo)."""
+    n = _iteraciones()
+    if n not in _HASH_DE_RELLENO:
+        _HASH_DE_RELLENO[n] = hash_password(secrets.token_urlsafe(16))
+    return _HASH_DE_RELLENO[n]
+
+
 def verify_password(password: str, guardado: Optional[str]) -> bool:
     """Compara en tiempo constante. Con `guardado=None` hace el mismo trabajo para no revelar si el usuario existe."""
     try:
-        algoritmo, n, sal_b64, h_b64 = (guardado or "pbkdf2_sha256$1000$AAAAAAAAAAAAAAAAAAAAAA==$AAAA").split("$")
+        algoritmo, n, sal_b64, h_b64 = (guardado or _hash_de_relleno()).split("$")
         if algoritmo != "pbkdf2_sha256":
             return False
         calculado = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), base64.b64decode(sal_b64), int(n))
@@ -73,6 +84,21 @@ USUARIO_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{2,49}$")
 def problemas_de_usuario(username: str) -> Optional[str]:
     if not USUARIO_RE.match((username or "").strip()):
         return "El usuario debe empezar con una letra y tener de 3 a 50 caracteres (letras, números, punto, guion o guion bajo)."
+    return None
+
+
+# Valores de ejemplo que este repositorio PUBLICA en .env.example e infra/production/.env.production.example.
+# Si alguien los usa tal cual, cualquiera podría entrar o falsificar sesiones: la aplicación se niega a atender.
+SECRETOS_DE_EJEMPLO = {"default_insecure_secret_replace_in_prod", "secreto_ficticio_largo_y_complejo"}
+CLAVES_DE_EJEMPLO = {"contrasena_ficticia"}
+
+
+def configuracion_insegura(session_secret: str, admin_password: str) -> Optional[str]:
+    """Motivo (sin revelar valores) si el secreto de sesión o la clave del primer administrador son valores de ejemplo."""
+    if session_secret.strip().lower() in SECRETOS_DE_EJEMPLO:
+        return "APP_SESSION_SECRET usa un valor de ejemplo: genere uno largo y aleatorio."
+    if admin_password.strip().lower() in CLAVES_DE_EJEMPLO:
+        return "APP_ACCESS_PASSWORD usa un valor de ejemplo: defina una contraseña propia para el primer administrador."
     return None
 
 
