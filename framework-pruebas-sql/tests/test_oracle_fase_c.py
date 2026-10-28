@@ -11,7 +11,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from test_oracle_phase2 import DEMO_USER, _connect, _perfil, _quick, _scalar, _seed_demo_data, pytestmark, test_password  # noqa: F401
+from test_oracle_phase2 import (DEMO_USER, HOST, PORT, SERVICE, _connect, _perfil, _quick, _scalar, _seed_demo_data,  # noqa: F401
+                                pytestmark, test_password)
 
 client = TestClient(app)
 TABLA = "FRAMEWORK_TEST_ITEMS"
@@ -101,8 +102,8 @@ def test_ejecutado_por_con_usuarios_y_oracle(datos, monkeypatch):
     c = TestClient(app)
     assert c.post("/api/login", json={"username": "admin", "password": "clave" + "-admin-ficticia"}).status_code == 200
     proj = c.post("/api/projects/", json={"name": "Fase C usuarios"}).json()["id"]
-    conn = c.post("/api/connections/", json={"project_id": proj, "name": "Oracle", "engine": "ORACLE", "host": "127.0.0.1", "port": 1521,
-                                             "service_name": "FREEPDB1", "username": DEMO_USER, "environment_type": "TEST"}).json()["id"]
+    conn = c.post("/api/connections/", json={"project_id": proj, "name": "Oracle", "engine": "ORACLE", "host": HOST, "port": PORT,
+                                             "service_name": SERVICE, "username": DEMO_USER, "environment_type": "TEST"}).json()["id"]
     r = c.post("/api/execute/quick", json={"connection_profile_id": conn, "password": test_password,
                                            "sql_query": f"SELECT COUNT(*) FROM {TABLA}", "expected_result": "5"})
     assert r.status_code == 200 and r.json()["status"] == "PASS", r.text
