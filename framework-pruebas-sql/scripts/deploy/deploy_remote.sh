@@ -7,14 +7,15 @@
 #   3. Descarga la imagen nueva (docker pull) y la etiqueta como candidata.
 #   4. Recrea SOLO el servicio `api` con esa imagen (no toca Oracle ni Caddy ni los volúmenes).
 #   5. Prueba de salud: el healthcheck del contenedor debe quedar «healthy» y /health debe responder.
-#   6. Si la salud falla: REVERSIÓN automática a la imagen anterior y salida con error.
+#   6. Si `compose up` falla (aunque sea a medias) o la salud falla: REVERSIÓN automática a la imagen anterior,
+#      reporte JSON con lo ocurrido y salida con error. El reporte se escribe siempre, también si la reversión falla.
 #
 # Variables obligatorias:
 #   APP_DIR     carpeta de la VM con compose.yml y .env.production (la de infra/production del repositorio)
 #   API_IMAGE   imagen completa, p. ej. ghcr.io/<propietario>/<repo>/framework-pruebas-sql:v1.0.0
 # Opcionales:
 #   GHCR_USER / GHCR_TOKEN   solo si el paquete es privado (el token se lee por variable de entorno, nunca por argumento)
-#   API_CONTAINER (framework_api_prod) · HEALTH_TIMEOUT (120 s) · SKIP_BACKUP (0) · REPORT_DIR (/opt/framework/releases)
+#   API_CONTAINER (framework_api_prod) · HEALTH_TIMEOUT (120 s) · HEALTH_INTERVAL (3 s) · SKIP_BACKUP (0) · REPORT_DIR (/opt/framework/releases)
 #
 # IMPORTANTE: revertir la imagen NO revierte la base. Si la versión nueva aplicó migraciones de Alembic al arrancar,
 # la base ya cambió; para volver al estado anterior de los datos hay que restaurar la copia previa (docs/operacion-fase3.md).
@@ -23,6 +24,7 @@ set -euo pipefail
 : "${APP_DIR:?Falta APP_DIR}" "${API_IMAGE:?Falta API_IMAGE}"
 API_CONTAINER="${API_CONTAINER:-framework_api_prod}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-120}"
+HEALTH_INTERVAL="${HEALTH_INTERVAL:-3}"
 SKIP_BACKUP="${SKIP_BACKUP:-0}"
 REPORT_DIR="${REPORT_DIR:-/opt/framework/releases}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -45,7 +47,7 @@ wait_healthy() {
                 return 0
             fi
         fi
-        sleep 3
+        sleep "$HEALTH_INTERVAL"
     done
     log "El contenedor no quedó saludable en ${HEALTH_TIMEOUT}s (último estado: ${status})"
     docker logs --tail 40 "$API_CONTAINER" 2>&1 | sed 's/^/    | /' || true
@@ -90,19 +92,29 @@ log "Descargando ${API_IMAGE}"
 docker pull "$API_IMAGE" >/dev/null
 
 # ---- 4. Recrear solo la API
+# `compose up` va dentro de un `if`: con `set -e` un fallo a medias (puerto ocupado, variable mal puesta, contenedor que
+# no arranca) cortaría el script sin revertir y sin reporte. Así se registra el fallo y se intenta volver atrás.
 export API_IMAGE
-log "Recreando el servicio api con ${API_IMAGE}"
-compose up -d --no-build --no-deps api
-
-# ---- 5. Prueba de salud
+NEW_IMAGE="$API_IMAGE"
 RESULT="ok"; ROLLED_BACK="no"
-if ! wait_healthy; then
-    RESULT="fallo_de_salud"
-    # ---- 6. Reversión automática
+log "Recreando el servicio api con ${API_IMAGE}"
+if compose up -d --no-build --no-deps api; then
+    # ---- 5. Prueba de salud
+    wait_healthy || RESULT="fallo_de_salud"
+else
+    RESULT="fallo_al_iniciar"
+    log "docker compose up falló con la imagen nueva"
+fi
+
+# ---- 6. Reversión automática
+if [ "$RESULT" != "ok" ]; then
     if [ -n "$ROLLBACK_TAG" ]; then
         log "REVERSIÓN automática a ${ROLLBACK_TAG}"
-        API_IMAGE="$ROLLBACK_TAG" compose up -d --no-build --no-deps api
-        if wait_healthy; then ROLLED_BACK="si"; else ROLLED_BACK="intentada_sin_exito"; fi
+        if API_IMAGE="$ROLLBACK_TAG" compose up -d --no-build --no-deps api && wait_healthy; then
+            ROLLED_BACK="si"
+        else
+            ROLLED_BACK="intentada_sin_exito"
+        fi
     else
         ROLLED_BACK="imposible_sin_imagen_previa"
     fi
@@ -111,7 +123,7 @@ fi
 cat > "$REPORT_DIR/deploy_${STAMP}.json" <<EOF
 {
   "fecha_utc": "${STAMP}",
-  "imagen_nueva": "${API_IMAGE}",
+  "imagen_nueva": "${NEW_IMAGE}",
   "imagen_anterior": "${PREVIOUS_REF}",
   "etiqueta_de_reversion": "${ROLLBACK_TAG}",
   "resultado": "${RESULT}",
@@ -123,7 +135,7 @@ cp "$REPORT_DIR/deploy_${STAMP}.json" "$REPORT_DIR/last_deploy.json"
 cat "$REPORT_DIR/deploy_${STAMP}.json"
 
 if [ "$RESULT" = "ok" ]; then
-    log "Despliegue correcto: ${API_IMAGE}"
+    log "Despliegue correcto: ${NEW_IMAGE}"
     exit 0
 fi
-fail "despliegue fallido (reversión: ${ROLLED_BACK}). Los datos pueden haber migrado: revise la copia previa antes de reintentar."
+fail "despliegue fallido (${RESULT}; reversión: ${ROLLED_BACK}). Los datos pueden haber migrado: revise la copia previa antes de reintentar."
