@@ -33,7 +33,7 @@ Cuenta lo que existe en cada módulo y cuánto tiene docstring. **Documentada** 
 | `app.models.usage` | sí | 0/1 | 0/1 | 0/0 | 0/6 | 6 | 0 |
 | `app.models.user` | sí | 0/1 | 0/1 | 0/0 | 0/11 | 11 | 0 |
 | `app.security.acceso` | sí | 0/0 | 1/5 | 0/0 | 0/0 | 0 | 0 |
-| `app.security.auth` | sí | 1/1 | 5/6 | 0/3 | 0/0 | 0 | 0 |
+| `app.security.auth` | sí | 1/1 | 6/7 | 0/3 | 0/0 | 0 | 0 |
 | `app.security.sql_policy` | sí | 0/0 | 1/1 | 0/0 | 0/0 | 0 | 0 |
 | `app.security.target_policy` | sí | 0/0 | 2/3 | 0/0 | 0/0 | 0 | 0 |
 | `app.services.analisis_tabla` | sí | 1/1 | 3/4 | 0/0 | 0/0 | 0 | 0 |
@@ -46,7 +46,7 @@ Cuenta lo que existe en cada módulo y cuánto tiene docstring. **Documentada** 
 | `app.services.rule_templates` | sí | 1/1 | 2/2 | 0/0 | 0/0 | 0 | 0 |
 | `app.services.usage_service` | sí | 0/0 | 1/2 | 0/0 | 0/0 | 0 | 0 |
 | `app.services.validacion_auto` | sí | 0/0 | 2/2 | 0/0 | 0/0 | 0 | 0 |
-| **Total** | 36/39 | 14/56 | 85/119 | 7/35 | 0/290 | 68 | 222 |
+| **Total** | 36/39 | 14/56 | 86/120 | 7/35 | 0/290 | 68 | 222 |
 
 ## Vacíos (sin docstring)
 
@@ -121,9 +121,9 @@ Cuenta lo que existe en cada módulo y cuánto tiene docstring. **Documentada** 
 | `app.cli` | `main` | 373 |
 | `app.core.database` | `set_sqlite_pragma` | 16 |
 | `app.core.database` | `get_db` | 29 |
-| `app.main` | `get_login_page` | 96 |
-| `app.main` | `health_check` | 104 |
-| `app.main` | `read_root` | 130 |
+| `app.main` | `get_login_page` | 99 |
+| `app.main` | `health_check` | 107 |
+| `app.main` | `read_root` | 133 |
 | `app.models.connection` | `get_utc_now` | 9 |
 | `app.models.history` | `get_utc_now` | 9 |
 | `app.models.project` | `get_utc_now` | 9 |
@@ -133,7 +133,7 @@ Cuenta lo que existe en cada módulo y cuánto tiene docstring. **Documentada** 
 | `app.security.acceso` | `asegurar_admin_inicial` | 28 |
 | `app.security.acceso` | `usuario_actual` | 39 |
 | `app.security.acceso` | `requiere_admin` | 51 |
-| `app.security.auth` | `problemas_de_usuario` | 73 |
+| `app.security.auth` | `problemas_de_usuario` | 84 |
 | `app.security.target_policy` | `allowed_hosts` | 20 |
 | `app.services.analisis_tabla` | `nombre_de_caso` | 140 |
 | `app.services.comparacion` | `clasificar` | 32 |
@@ -173,9 +173,9 @@ Cuenta lo que existe en cada módulo y cuánto tiene docstring. **Documentada** 
 | `app.models.schemas` | `QuickExecutionRequest.aceptar_auto` | 335 |
 | `app.models.schemas` | `QuickExecutionRequest.validate_text` | 342 |
 | `app.models.schemas` | `QuickExecutionRequest.validate_expected_for_type` | 349 |
-| `app.security.auth` | `LimiteDeIntentos.bloqueada` | 132 |
-| `app.security.auth` | `LimiteDeIntentos.fallo` | 136 |
-| `app.security.auth` | `LimiteDeIntentos.reiniciar` | 140 |
+| `app.security.auth` | `LimiteDeIntentos.bloqueada` | 158 |
+| `app.security.auth` | `LimiteDeIntentos.fallo` | 162 |
+| `app.security.auth` | `LimiteDeIntentos.reiniciar` | 166 |
 
 ### Propiedades sin documentar (222)
 

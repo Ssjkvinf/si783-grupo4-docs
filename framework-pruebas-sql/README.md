@@ -18,10 +18,14 @@ El objetivo del sistema es permitir definir, ejecutar, validar y registrar prueb
 ## 4. Arquitectura Actual
 El sistema sigue una arquitectura modular y desacoplada por capas:
 - **Frontend**: Interfaz web modular e integrada en `/ui/`. Incluye paneles de proyectos, conexiones, casos de prueba, ejecución de suites e historial con soporte móvil. Todos los endpoints funcionales comienzan con `/api`.
-- **API (Controladores / Routers)**: Endpoints REST v2 (`/api/projects`, `/api/connections`, `/api/test-cases`, `/api/suites`, `/api/history`, `/api/execute`).
+- **API (Controladores / Routers)**: Endpoints REST v2 (`/api/projects`, `/api/connections`, `/api/test-cases`, `/api/suites`, `/api/history`, `/api/execute`, `/api/rules`, `/api/analysis`, `/api/demo`, `/api/usage`, `/api/excel`) y de acceso (`/api/login`, `/api/logout`, `/api/register`, `/api/me`, `/api/users`).
+- **Seguridad del acceso** (`app/security/auth.py`, `app/security/acceso.py`): usuarios con rol `ADMIN` o `TESTER`, contraseñas con hash PBKDF2, sesión firmada con caducidad, límite de intentos. Detalle en `docs/seguridad.md`.
 - **Core & Persistencia**: Gestión de sesión y contexto de base de datos SQLite interna (`framework_interno.db`) con soporte de claves foráneas `PRAGMA foreign_keys = ON;` y migraciones con **Alembic**.
 - **Services (Capa de Servicios Centralizada)**:
-  - `ExecutionService`: Orquestación centralizada de ejecuciones (individuales y por suite), selección de estrategia de validación (`ROW_COUNT` y `EXISTS`), formateo seguro de evidencias y registro en historial.
+  - `ExecutionService`: Orquestación centralizada de ejecuciones (individuales y por suite), selección de estrategia de validación (`ROW_COUNT`, `SCALAR_VALUE` y `EXISTS`), formateo seguro de evidencias y registro en historial (con «ejecutado por»).
+  - `validacion_auto`: decide la comparación a partir de la consulta y del valor esperado (la persona no tiene que elegirla).
+  - `rule_templates` y `analisis_tabla`: asistente de reglas y «Analizar una tabla» (reglas propuestas desde el diccionario de datos de Oracle y el estado actual de los datos).
+  - `comparacion` y `reporte_corrida`: comparación con la ejecución anterior, corridas de una suite y reporte HTML descargable.
   - `ProjectService`: Inicialización transparente del proyecto predeterminado ("Proyecto general", ID=1).
 - **Engine (Motor SQL y Validación)**:
   - `TargetDatabaseExecutor`: Administración de conexiones Oracle (o simuladas en pruebas), validación estricta de sentencias (bloqueo de DDL/comandos peligrosos y múltiples sentencias) y aplicación de `ROLLBACK` obligatorio.
@@ -73,7 +77,7 @@ No abras `frontend/index.html` mediante `file://`, porque el flujo oficial utili
 pytest -v
 ```
 *Nota: Las pruebas automáticas corren sobre una base de datos SQLite en memoria aislada (`:memory:`) sin alterar `framework_interno.db` ni requerir una conexión Oracle real.*
-El total de pruebas de la suite completa se informa en los resultados. Las pruebas Oracle se ejecutaron contra un Oracle Free local desechable el 18‑oct‑2026 (23 pruebas Oracle superadas); el resultado actual de la suite sin Oracle se ve con `python -m pytest -q` (ver `docs/informes/FD05-informe-final.md` §6.3). La contraseña se solicita únicamente al probar o ejecutar y nunca se persiste. Para entornos de Producción, el sistema aplica una estricta política de solo lectura (SELECT).
+El total de pruebas de la suite completa se informa en los resultados. Las pruebas Oracle se ejecutaron contra un Oracle Free local desechable el 18‑oct‑2026 (23 pruebas Oracle superadas) y el 26‑oct‑2026 (28 pruebas Oracle superadas, incluidas las de usuarios, análisis de tablas y comparación); el resultado actual de la suite sin Oracle se ve con `python -m pytest -q` (ver `docs/informes/FD05-informe-final.md` §6.3). La contraseña se solicita únicamente al probar o ejecutar y nunca se persiste. Para entornos de Producción, el sistema aplica una estricta política de solo lectura (SELECT).
 
 ## 11. Uso del Archivo `.env.example`
 Copia la plantilla de variables de entorno y ajusta los valores locales si es necesario:
@@ -90,16 +94,20 @@ Los datos del perfil Oracle se registran desde la interfaz. La contraseña se so
 - [x] **Gestión de Proyectos (CRUD):** Creación, lectura, actualización y eliminación de proyectos. Prevención de eliminación si existen dependencias.
 - [x] **Perfiles de Conexión (CRUD sin contraseñas):** Configuración de hosts, puertos, usernames y service names. Las contraseñas NO se almacenan en SQLite (ni en texto plano ni cifradas).
 - [x] **Prueba de Conexión:** Endpoint `/api/connections/{id}/test` para validar credenciales sin guardar la contraseña.
-- [x] **Casos de Prueba con validation_type:** Soporte para estancias de validación por `ROW_COUNT` (número de filas afectadas) y `EXISTS` (verificación boolean true/false).
+- [x] **Casos de Prueba con validation_type:** `ROW_COUNT` (cantidad de filas), `SCALAR_VALUE` (valor que devuelve la consulta, p. ej. un `COUNT`) y `EXISTS` (devuelve filas sí/no), con **comparación automática** por defecto.
 - [x] **Suites de Pruebas:** Agrupación de casos pertenecientes al mismo proyecto con validaciones de integridad (mismo proyecto, sin duplicados).
 - [x] **Motor de Ejecución Centralizado y Seguridad por Entornos:** Motor SQL robusto con analizador `sqlparse`. Bloquea DDL y sentencias múltiples. Aplica reglas estrictas según entorno (`TEST`, `STAGING`, `PRODUCTION`), requiriendo confirmación para DML en preproducción y bloqueándolo absolutamente en producción (donde además se enmascaran los datos en el historial).
 - [x] **Historial Completo y Trazabilidad:** Registro persistente de ejecuciones (`ExecutionHistory`) incluyendo detalles técnicos. Límite configurable de `MAX_RESULT_ROWS` y `ORACLE_CALL_TIMEOUT_MS`.
 - [x] **Consultas con Filtros y Paginación:** Búsqueda en historial por `project_id`, `test_case_id`, `suite_id` y `status`.
 - [x] **Migraciones Alembic:** Control de versiones de esquema de base de datos SQLite con soporte para SQLite batch mode (`render_as_batch=True`).
 - [x] **Aislamiento Total en Pruebas:** Pytest 100% aislado en memoria (`:memory:`), sin modificar `framework_interno.db`.
+- [x] **Usuarios y roles:** cuentas individuales `ADMIN`/`TESTER`, solicitud de cuenta con aprobación del administrador, «ejecutado por» en cada ejecución.
+- [x] **Asistente de reglas y Analizar una tabla:** reglas de calidad sin escribir SQL; propuestas a partir de la estructura y los datos de una tabla, guardables como suite.
+- [x] **Comparación con la ejecución anterior y reportes:** «antes pasaba y ahora no» por caso, tendencia de las últimas corridas por suite, reporte HTML y Excel por corrida.
+- [x] **Demostración guiada:** reglas, FAIL/ERROR de ejemplo, INSERT revertido y DROP rechazado en menos de un minuto.
 
 ## 13. Capacidades de Despliegue
-- [x] Validación Oracle Real: Ejecución comprobada contra una base de datos Oracle XE o similar en un contenedor Docker.
+- [x] Validación Oracle Real: Ejecución comprobada contra Oracle Free en un contenedor Docker local desechable (18‑oct‑2026 y 26‑oct‑2026; la imagen Docker de la aplicación también se probó contra ese Oracle).
 - [x] Preparación de producción y despliegue: variables, almacenamiento persistente, acceso protegido (despliegue en la nube sigue pendiente).
 
 ## 14. Advertencia de Seguridad
@@ -186,7 +194,7 @@ El script de inicialización (`001_test_schema.sh`) crea automáticamente un usu
 - **Contenedor lento al iniciar**: Oracle Free toma de 1 a 3 minutos en iniciar los esquemas conectables (`FREEPDB1`). Utilice `docker ps` para ver si el estado cambió a `healthy`.
 
 ### Ejecutar las Pruebas de Integración Reales
-Asegúrese de que el entorno contenga las variables del archivo `.env.oracle` (puede exportarlas o usar utilidades como `python-dotenv`). Las pruebas saltarán automáticamente si las credenciales de Oracle no están presentes.
+Asegúrese de que el entorno contenga las variables del archivo `.env.oracle` (puede exportarlas o usar utilidades como `python-dotenv`). Las pruebas saltarán automáticamente si las credenciales de Oracle no están presentes. `tests/test_oracle_integration.py` lee `.env.oracle` por su cuenta: deje `RUN_ORACLE_TESTS=0` en ese archivo y active las pruebas a propósito (`$env:RUN_ORACLE_TESTS="1"` en PowerShell) solo cuando el Oracle desechable esté encendido.
 ```bash
 pytest -v -m oracle_integration
 ```
@@ -196,7 +204,7 @@ pytest -v -m oracle_integration
 <!-- GENERADO:inicio resumen -->
 <!-- Bloque generado por scripts/docs/gen_docs.py; no editar a mano. -->
 
-**Versión de la API:** 2.0.0 · **Operaciones HTTP documentadas (OpenAPI):** 53 · **Tablas de la base interna (SQLite):** 8 · **Archivos de prueba:** 32 · **Funciones `test_` (recuento estático; no prueba que pasen):** 367
+**Versión de la API:** 2.0.0 · **Operaciones HTTP documentadas (OpenAPI):** 53 · **Tablas de la base interna (SQLite):** 8 · **Archivos de prueba:** 36 · **Funciones `test_` (recuento estático; no prueba que pasen):** 392
 
 | Grupo de endpoints | Rutas |
 | --- | --- |
@@ -240,6 +248,7 @@ pytest -v -m oracle_integration
 - [Referencia SRS y SAD (Software Requirements & Architecture Document)](docs/referencia-srs-sad.md)
 - [Respaldo y Restauración](docs/respaldo-restauracion.md)
 - [Resumen de una página (para explicar el proyecto en 2 minutos)](docs/resumen-una-pagina.md)
+- [Runbook de Azure — paso a paso](docs/runbook-azure.md)
 - [Seguridad](docs/seguridad.md)
 - [Tareas propuestas para Gerald](docs/tareas-gerald.md)
 - [Verificación](docs/verificacion.md)

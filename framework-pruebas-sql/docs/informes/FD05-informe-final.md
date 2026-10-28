@@ -74,15 +74,18 @@ Los costos de un escenario de implantación (VM de nube, copias, dominio, soport
 ## 6. Resultados y estado de verificación
 
 ### 6.1 Qué hace hoy la aplicación [Hecho]
-Proyectos, perfiles sin contraseña, casos y suites (`ROW_COUNT`, `SCALAR_VALUE`, `EXISTS`), ejecución individual/de suite/rápida, política SQL por ambiente, historial con origen y corrida, «Inicio» con resultado explicado, panel «Uso del producto» (cifras desde datos guardados), Excel (plantilla, importar todo-o-nada, exportar), CLI con informes y códigos de salida. Endpoints: `docs/generated/api-endpoints.md`. Datos: `docs/generated/diccionario-datos.md`.
+Proyectos, perfiles sin contraseña, casos y suites (`ROW_COUNT`, `SCALAR_VALUE`, `EXISTS`) con comparación automática, ejecución individual/de suite/rápida, política SQL por ambiente, historial con origen, corrida y «ejecutado por», «Inicio» con resultado explicado, asistente de reglas, demostración guiada, Analizar una tabla (propone reglas desde el diccionario de datos y los datos actuales y las guarda como suite), comparación con la ejecución anterior y tendencia por suite, reporte HTML y Excel por corrida, panel «Uso del producto» (cifras desde datos guardados, también por persona y origen), usuarios con roles ADMIN/TESTER con solicitud de cuenta y aprobación, Excel (plantilla, importar todo-o-nada, exportar), CLI con informes y códigos de salida. Endpoints: `docs/generated/api-endpoints.md`. Datos: `docs/generated/diccionario-datos.md`. Seguridad del acceso: `docs/seguridad.md`.
 
 ### 6.2 Estado por componente
-«Probado local» incluye el uso de Oracle **simulado** (sustituto SQLite de las pruebas) o H2: no es Oracle real. Fecha de las pruebas con Oracle real: 18‑oct‑2026, Oracle Free en Docker local desechable, antes de que Docker Desktop dejara de arrancar contenedores; **no se repitieron** tras los cambios de las Fases 3 a 5.
+«Probado local» incluye el uso de Oracle **simulado** (sustituto SQLite de las pruebas) o H2: no es Oracle real. Pruebas con Oracle real (Oracle Free en Docker local desechable): 18‑oct‑2026 (Fase 2) y **26‑oct‑2026** (tras usuarios, análisis de tablas y comparación: 28 pruebas Oracle, suite completa 490 superadas y 0 omitidas; además, la imagen Docker nueva se probó de punta a punta contra ese Oracle: 13 de 13 comprobaciones). Según el equipo, los checks del PR #6 pasaron en GitHub, incluidos Liquibase y Alembic contra un Oracle desechable de CI; **no se guardó aquí el enlace** ni se comprobó qué commit cubrieron.
 
 | Componente | Creado | Probado local | Probado con Oracle real | Ejecutado en GitHub | Desplegado en Azure |
 | --- | --- | --- | --- | --- | --- |
-| API, motor y política SQL | Sí | Sí (suite pytest) | Sí (Fase 2: SELECT, INSERT revertido, `DROP`/`TRUNCATE`/`ALTER` rechazados, suite 5 PASS→FAIL→5 PASS) | No verificado | No verificado |
-| Inicio / prueba rápida | Sí | Sí (Oracle simulado) | Sin prueba automática | No | No |
+| API, motor y política SQL | Sí | Sí (suite pytest) | Sí (Fase 2: SELECT, INSERT revertido, `DROP`/`TRUNCATE`/`ALTER` rechazados, suite 5 PASS→FAIL→5 PASS; repetido 26‑oct) | Según el equipo, sí (PR #6) | No verificado |
+| Inicio / prueba rápida y comparación automática | Sí | Sí (Oracle simulado) | Sí (26‑oct, `tests/test_oracle_fase_c.py`) | Pendiente de confirmar | No |
+| Usuarios, roles y «ejecutado por» | Sí | Sí (`tests/test_usuarios.py`, matriz de 52 operaciones) | Sí (26‑oct, imagen Docker + Oracle) | Pendiente de confirmar | No |
+| Analizar una tabla | Sí | Sí (sustituto SQLite con vistas del diccionario) | Sí (26‑oct, diccionario real `USER_TAB_COLUMNS`) | Pendiente de confirmar | No |
+| Comparación con la vez anterior y reporte por corrida | Sí | Sí | Sí (26‑oct) | Pendiente de confirmar | No |
 | Dashboard de uso | Sí | Sí (reloj fijo; datos sembrados) | No aplica (usa solo la SQLite interna) | No | No |
 | Excel | Sí | Sí (openpyxl real) | No aplica a importar; exportar resultados usa el historial | No | No |
 | CLI | Sí | Sí (sustituto SQLite de Oracle; subproceso) | **No** | No | No |
@@ -95,7 +98,9 @@ Proyectos, perfiles sin contraseña, casos y suites (`ROW_COUNT`, `SCALAR_VALUE`
 | Usabilidad (OS‑1/OS‑2) | Protocolo | **No medido** | — | — | — |
 
 ### 6.3 Pruebas ejecutadas (comando y resultado)
-Ejecutadas el 20‑oct‑2026 en un equipo Windows con Python 3.11.9 (el `Dockerfile` y GitHub Actions usan 3.12: **no se probó con 3.12**), desde `framework-pruebas-sql/`:
+Revisión del 28‑oct‑2026 (Windows, Python 3.11.9, sin Oracle porque Docker estaba apagado), desde `framework-pruebas-sql/`: `python -m pytest -q` → **469 superadas, 28 omitidas (Oracle), 0 fallidas** (497 recogidas); igual con `GITHUB_ACTIONS=true` y con `-m "not oracle_integration"`; `alembic upgrade head` → `downgrade base` → `upgrade head` y `alembic check` sin diferencias sobre una SQLite desechable; 17 archivos JavaScript sin errores de sintaxis; `gen_docs.py --check`, `mkdocs build --strict` y `git diff --check` sin errores. La imagen Docker (Python 3.12) se construyó y probó el 26‑oct‑2026.
+
+Ejecutadas el 20‑oct‑2026 en un equipo Windows con Python 3.11.9 (el `Dockerfile` y GitHub Actions usan 3.12: **no se probó con 3.12** en esa fecha), desde `framework-pruebas-sql/`:
 
 | Comando | Resultado |
 | --- | --- |
@@ -123,7 +128,7 @@ Falla real encontrada por estas pruebas en la Fase 5: `pages.yml` tenía un nomb
 5. No hubo cliente ni entrevistas; los documentos deben decirlo siempre.
 
 ## 8. Recomendaciones
-Ejecutar el protocolo de usabilidad con compañeros; repetir las pruebas con Oracle real tras los cambios recientes; ejecutar los workflows en GitHub y guardar sus artefactos; definir usuarios individuales; decidir la licencia; verificar los antecedentes que se citen por número de anexo.
+Ejecutar el protocolo de usabilidad con compañeros; guardar los enlaces de las ejecuciones de GitHub Actions y sus artefactos; desplegar la versión nueva en Azure y comprobar ingreso, roles y panel de uso con datos reales; decidir si la solicitud de cuentas queda abierta en Azure; decidir la licencia; verificar los antecedentes que se citen por número de anexo.
 
 ## 9. Bibliografía (fuentes abiertas y leídas el 20‑oct‑2026)
 - Contraloría General de la República (2024). *Términos de referencia para el servicio de mejora para el software de gestión de la línea de producción de microformas digitales*. https://doc.contraloria.gob.pe/BID/2024/BID_SCC635/TDR.pdf

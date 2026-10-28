@@ -532,6 +532,7 @@ NAV_FIJA = [
         ("Seguridad", "seguridad.md"),
         ("Respaldo y restauración", "respaldo-restauracion.md"),
         ("Operación (Fase 3)", "operacion-fase3.md"),
+        ("Runbook de Azure (paso a paso)", "runbook-azure.md"),
         ("Integraciones (Fase 4)", "integraciones-fase4.md"),
     ]),
     ("Documentación generada", [

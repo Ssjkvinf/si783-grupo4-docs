@@ -52,11 +52,13 @@ az storage account list -o table --query "[].{cuenta:name, grupo:resourceGroup, 
 
 Anoten: grupo de recursos de la VM, nombre de la VM, su tamaño (p. ej. `Standard_B2s`), región, IP/DNS público y la carpeta de la VM donde está `compose.yml` + `.env.production` (por el README, `infra/production`).
 
-**Identidad para GitHub (service principal)** — mínimo privilegio, solo sobre el grupo de recursos de la VM:
+**Identidad para GitHub (service principal)** — mínimo privilegio, solo sobre el grupo de recursos de la VM. Con **Reader** + **Storage Account Contributor** puede leer la VM y crear el almacenamiento de copias, pero **Azure le impide modificar la VM** (no se usa *Contributor*, que sí podría). Pasos detallados en [`runbook-azure.md`](runbook-azure.md) §B.
 
 ```bash
-az ad sp create-for-rbac --name "sp-framework-sql" --role Contributor \
+az ad sp create-for-rbac --name "sp-framework-sql" --role Reader \
   --scopes /subscriptions/<ID_SUSCRIPCION>/resourceGroups/<GRUPO_DE_LA_VM>
+az role assignment create --assignee <APP_ID_DEL_SP> --role "Storage Account Contributor" \
+  --scope /subscriptions/<ID_SUSCRIPCION>/resourceGroups/<GRUPO_DE_LA_VM>
 ```
 
 La salida contiene un secreto: cópienlo **directamente** a los secretos de GitHub y no lo peguen en chats, correos ni archivos. Si su cuenta universitaria no permite crear service principals, pidan al docente que lo cree.

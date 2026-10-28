@@ -1,59 +1,89 @@
 # Manual de Usuario
 
-Bienvenido al **Framework de Pruebas de Base de Datos SQL**. Este sistema le permite administrar conexiones a bases de datos Oracle, organizar casos de prueba para consultas DML y SELECT, y ejecutarlos con validaciones de éxito automatizadas.
+La aplicación permite **comprobar consultas SQL sobre Oracle**: usted dice qué espera que devuelva una consulta, la aplicación la ejecuta, compara y guarda la evidencia (consulta, esperado, obtenido, estado, fecha, duración y quién la ejecutó). Cada comprobación termina en:
 
-## Primeros Pasos
+- **PASS**: coincide con lo esperado.
+- **FAIL**: se ejecutó, pero no coincide (posible problema en los datos).
+- **ERROR**: no se pudo ejecutar o evaluar (tabla inexistente, contraseña, sentencia no permitida…).
 
-### 0. Primera comprobación guiada (pantalla «Inicio»)
-Al entrar se abre **Inicio**, que explica en pocas líneas qué problema atiende la aplicación, qué hace y para quién está pensada, y permite hacer una primera comprobación sin visitar los demás módulos:
-1. **Conectar:** elija una conexión Oracle del proyecto activo (o cree una con *Nueva conexión*) y escriba la contraseña. La contraseña solo se usa para esa ejecución y no se guarda.
-2. **Comprobación:** elija un ejemplo o escriba un `SELECT`, y diga qué espera: una cantidad exacta de **filas** (`ROW_COUNT`), un **valor** concreto como el número que calcula un `COUNT(*)` (`SCALAR_VALUE`), o que devuelva filas / ninguna (`EXISTS`). Un `COUNT(*)` siempre devuelve 1 fila: para comparar su número use «valor». **Usted define lo esperado**; la aplicación nunca lo copia del resultado.
-3. **Ejecutar:** verá **PASS** (coincide con lo esperado), **FAIL** (la consulta se ejecutó pero no coincide) o **ERROR** (no se pudo ejecutar o evaluar), con la explicación de qué se esperaba, qué se obtuvo y por qué.
-4. **Después:** *Repetir*, *Guardar como caso de prueba* (debe confirmar el valor esperado) o *Ver en el historial*.
+Un PASS significa que **la regla configurada** se cumple, no que toda la base esté correcta.
 
-Este recorrido solo ejecuta consultas `SELECT` y respeta el ambiente de la conexión; en PRODUCTION no se muestran las filas, solo su cantidad. Las ejecuciones quedan en el historial como «Rápida». Más abajo, «Siguiente paso» carga una suite de demostración (reglas sobre `FRAMEWORK_TEST_ITEMS`) que se ejecuta con un clic y se repite sin reconstruir los casos (ver `docs/demostracion-fase2.md`). Para `INSERT`, `UPDATE` o `DELETE` use los módulos de Casos y Suites, descritos a continuación.
+## 1. Ingreso y cuentas
 
-### 1. Acceso al Sistema
-Si la seguridad está habilitada, al ingresar al sistema se le presentará una **Pantalla de Acceso**.
-- Ingrese el **Usuario** y la **Contraseña** proporcionados por su administrador.
-- El sistema utiliza una sesión segura (Cookie HttpOnly) para mantener su acceso durante 24 horas.
-- Para salir del sistema y revocar su acceso de manera segura, utilice el botón **Salir** ubicado en la parte superior derecha de la interfaz principal.
+Si el control de acceso está activado (`APP_ACCESS_ENABLED=true`), se abre la pantalla de ingreso.
 
-### 2. Gestión de Proyectos
-El proyecto es el contenedor lógico de nivel superior. Todas las conexiones, casos y suites pertenecen a un proyecto.
-- En la barra lateral, acceda a **Proyectos**.
-- Haga clic en **Nuevo** y proporcione un nombre descriptivo.
-- Seleccione su nuevo proyecto en el **selector desplegable (Proyecto Activo)** en la barra superior.
+- **Ingresar**: usuario y contraseña. Tras 5 intentos fallidos seguidos la cuenta se bloquea 15 minutos; tras 20 fallos desde un mismo equipo en 15 minutos, ese equipo debe esperar.
+- **Solicitar acceso**: nombre, usuario y contraseña (al menos 10 caracteres, con letras y números, sin incluir el usuario). La cuenta queda **pendiente** hasta que un administrador la aprueba. El administrador puede desactivar esta opción (`APP_REGISTRATION_ENABLED=false`).
+- **Sesión**: dura 8 horas. «Salir» (menú de su nombre, arriba a la derecha) la cierra en todos los equipos.
+- **Cambiar mi contraseña**: en el mismo menú. Cierra sus otras sesiones.
 
-### 2. Perfiles de Conexión y Ambientes
-Para ejecutar pruebas contra una base de datos Oracle, es necesario definir a dónde conectarse.
-- Acceda a **Conexiones Oracle**.
-- Cree un nuevo perfil indicando el Host, Puerto, Service Name y el Usuario.
-- **Ambiente de Base de Datos**: Seleccione estrictamente el tipo de ambiente:
-  - `TEST`: Permite operaciones DML con rollback obligatorio automático.
-  - `STAGING`: Permite DML solo con confirmación explícita del backend y rollback obligatorio automático.
-  - `PRODUCTION`: Bloquea estrictamente cualquier intento de DML por el backend y ofusca las filas devueltas (solo conteo visible). Solo permite sentencias de lectura (`SELECT`) y requiere un usuario Oracle exclusivo con permisos SELECT.
-- **Nota de Seguridad**: Las contraseñas no se guardan en el sistema. Se le solicitarán únicamente en el momento de ejecutar la prueba.
+### Roles
 
-### 3. Creación de Casos de Prueba
-Un caso de prueba es una sentencia SQL que se enviará a Oracle.
-- Acceda a **Casos de Prueba**.
-- Defina la sentencia SQL (por ejemplo, `INSERT INTO...`).
-- Elija la **Validación**:
-  - `ROW_COUNT`: compara **cuántas filas** devuelve la consulta (o cuántas afecta un DML). Un `COUNT(*)` siempre devuelve 1 fila.
-  - `SCALAR_VALUE`: compara el **valor** de la primera columna de la única fila devuelta (por ejemplo el número que calcula un `COUNT(*)`). No está disponible en PRODUCTION.
-  - `EXISTS`: espera que la consulta devuelva filas (`true`) o ninguna (`false`).
-- Ingrese el resultado esperado.
+| Puede… | Tester | Administrador |
+| --- | --- | --- |
+| Usar Inicio, el asistente de reglas, Analizar una tabla y la demostración guiada | Sí | Sí |
+| Crear, ejecutar y eliminar casos y suites; importar o exportar Excel | Sí | Sí |
+| Ver el historial, los reportes y el panel «Uso del producto» | Sí | Sí |
+| Probar una conexión existente | Sí | Sí |
+| Crear, editar o eliminar proyectos y conexiones Oracle | No | Sí |
+| Aprobar solicitudes, cambiar roles, asignar contraseñas, eliminar cuentas | No | Sí |
 
-### 4. Organización en Suites
-Agrupe casos relacionados para ejecutarlos juntos.
-- Acceda a **Suites**.
-- Cree una Suite y luego, usando el panel inferior de la tarjeta de la Suite, asocie los Casos de Prueba deseados.
+El primer administrador lo crea el servidor con `APP_ACCESS_USERNAME` y `APP_ACCESS_PASSWORD` (ver `docs/seguridad.md`). La interfaz oculta lo que un Tester no puede hacer, pero quien decide es el servidor (responde 403).
 
-### 5. Ejecución
-Tanto Casos de Prueba como Suites pueden ejecutarse haciendo clic en el botón de Ejecutar (icono de Play).
-- Se abrirá una ventana solicitando la contraseña de la conexión elegida.
-- El sistema se conectará a Oracle, ejecutará la sentencia, verificará el resultado y aplicará un **ROLLBACK** de forma automática (garantizando que no se dejen datos sucios).
+## 2. Primera comprobación («Inicio»)
 
-### 6. Historial
-Revise el **Historial de Ejecuciones** para auditar todos los casos corridos. Puede visualizar si un caso fue PASS, FAIL, o si ocurrió un ERROR de conectividad o SQL, así como confirmar si se aplicó el Rollback.
+1. **Conectar**: elija una conexión Oracle del proyecto activo y escriba la contraseña del usuario Oracle. Solo se usa para esa ejecución; **no se guarda**.
+2. **Elegir qué comprobar**:
+   - con el **asistente de reglas** (sin escribir SQL): «la tabla no está vacía», «ninguna fila con la columna vacía», «sin valores repetidos», «la columna solo contiene ciertos valores», etc.; o
+   - escribiendo un `SELECT`.
+3. **Decir qué espera**: un número, sí/no o un valor. Con la opción **Automático (recomendado)** la aplicación decide cómo comparar y lo explica:
+   - si la consulta calcula un único valor (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`) compara ese valor;
+   - si escribe un número y la consulta no calcula un valor, compara la cantidad de filas;
+   - si escribe sí/no, comprueba si devuelve filas;
+   - si escribe un texto, compara el valor devuelto.
+   Puede elegir la comparación a mano si lo prefiere.
+4. **Ejecutar**: verá PASS, FAIL o ERROR con «lo que se esperaba», «lo que se obtuvo» y «por qué». Después puede **Repetir**, **Guardar como caso** (confirmando el valor esperado) o **Ver en el historial**.
+
+En Inicio solo se ejecutan `SELECT`. Para `INSERT`, `UPDATE` o `DELETE` use Casos y Suites.
+
+**Demostración guiada**: con una conexión de ambiente TEST, ejecuta en menos de un minuto reglas que pasan, un FAIL y un ERROR de ejemplo, un `INSERT` que se revierte y un `DROP` que se rechaza.
+
+## 3. Analizar una tabla
+
+Menú **Analizar una tabla**: elija una conexión TEST o STAGING, escriba la contraseña y el nombre de la tabla (`TABLA` o `ESQUEMA.TABLA`).
+
+La aplicación lee la estructura (clave primaria, columnas obligatorias) y cómo están hoy los datos (vacíos, valores distintos, valores posibles, mínimo y máximo) con **solo consultas SELECT**, y propone reglas. Las marcadas como «recomendadas» vienen seleccionadas. Elija las que quiera y pulse **Guardar** o **Guardar y ejecutar**: se crea una suite con un caso por regla.
+
+Las reglas propuestas describen cómo están los datos **hoy**: sirven para avisar cuando algo cambia, no prueban que hoy estén bien. No está disponible en PRODUCTION (allí las filas se ocultan).
+
+## 4. Proyectos y conexiones (administrador)
+
+- **Proyectos**: agrupan conexiones, casos, suites e historial. El selector «Proyecto activo» (arriba) define dónde trabaja.
+- **Conexiones Oracle**: nombre, servidor (host), puerto (1521 por defecto), servicio (p. ej. `FREEPDB1`), usuario Oracle y ambiente. Opcionalmente escriba la contraseña para **probar al guardar**; no se guarda.
+- **Ambientes**:
+  - `TEST`: `SELECT` y cambios (`INSERT`, `UPDATE`, `DELETE`) que siempre se revierten con `ROLLBACK`.
+  - `STAGING`: igual que TEST, pero pide confirmación antes de ejecutar cambios.
+  - `PRODUCTION`: solo `SELECT`; no se muestran las filas, solo su cantidad. Use un usuario Oracle de solo lectura.
+- `DROP`, `ALTER`, `TRUNCATE`, `CREATE`, `GRANT` y bloques PL/SQL se rechazan **antes** de llegar a Oracle. El rollback no deshace secuencias (`NEXTVAL`) ni lo que haga una transacción autónoma.
+
+## 5. Casos y suites
+
+- **Casos de prueba**: nombre, consulta, cómo comparar (Automático, cantidad de filas, valor o existe sí/no) y resultado esperado. También se crean desde Inicio, desde «Analizar una tabla» o importando un Excel (plantilla descargable; se valida antes de guardar).
+- **Suites**: grupos de casos que se ejecutan juntos. Cada tarjeta muestra las barras de las últimas corridas (verde: todo pasó; ámbar o rojo: hubo fallos) y un enlace al reporte de la última.
+- **Ejecutar**: elija la conexión y escriba la contraseña. En STAGING y PRODUCTION se pide confirmación.
+- **Comparación con la vez anterior**: el resultado de una suite marca cada caso como «Igual que la vez anterior», **«Antes pasaba y ahora no»** (fallo nuevo), «Antes fallaba y ahora pasa» o «Primera ejecución».
+- **Descargas**: «Descargar reporte» (página HTML que se puede imprimir o guardar como PDF) y «Excel de esta corrida».
+
+Un caso, una suite o una conexión que ya tienen ejecuciones en el historial no se pueden eliminar: así se conserva la evidencia.
+
+## 6. Historial
+
+Lista las ejecuciones del proyecto activo con fecha, qué se ejecutó (caso y suite por nombre), resultado, esperado y obtenido, duración y **quién** la lanzó. Filtros: resultado, suite, caso y usuario. El detalle muestra la consulta, la conexión, el origen (Interfaz, Inicio, CLI o GitHub Actions), el rollback y la comparación con la ejecución anterior del mismo caso, y permite descargar el reporte de su corrida.
+
+## 7. Uso del producto
+
+Panel con cifras calculadas desde los datos guardados: ejecuciones por día, PASS/FAIL/ERROR, casos y suites más usados, origen de las ejecuciones, **ejecuciones por persona** y otras acciones (Excel, demostración, análisis de tablas). Cada cifra tiene su definición y sus límites (por ejemplo, las ejecuciones anteriores a las cuentas individuales aparecen como «sin usuario»).
+
+## 8. Ayuda
+
+La sección **Ayuda** resume los tres pasos, explica PASS/FAIL/ERROR y los roles, qué protege la aplicación y preguntas frecuentes.

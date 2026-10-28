@@ -48,9 +48,9 @@ Personas que desarrollan o prueban sobre Oracle (desarrollo, QA) y quienes autor
 
 | Capa | Contenido | Estado |
 | --- | --- | --- |
-| **Implementado** (verificable en el repositorio) | Proyectos, perfiles de conexión sin contraseña, casos (`ROW_COUNT`, `SCALAR_VALUE`, `EXISTS`), suites, historial, política de SQL por ambiente, prueba rápida en «Inicio», dashboard de uso, Excel (plantilla/importar/exportar), CLI con códigos de salida, base interna SQLite con Alembic. | [Hecho] ver `docs/informes/FD05-informe-final.md` §6 |
+| **Implementado** (verificable en el repositorio) | Proyectos, perfiles de conexión sin contraseña, casos (`ROW_COUNT`, `SCALAR_VALUE`, `EXISTS`) con **comparación automática**, suites, historial con «ejecutado por», política de SQL por ambiente, prueba rápida en «Inicio», asistente de reglas, demostración guiada, **Analizar una tabla** (reglas propuestas desde el diccionario de datos y el estado actual de los datos), **comparación con la ejecución anterior**, reporte descargable por corrida, dashboard de uso (también por persona y origen), **usuarios con roles ADMIN/TESTER** y solicitud de cuenta con aprobación, Excel (plantilla/importar/exportar), CLI con códigos de salida, base interna SQLite con Alembic. | [Hecho] ver `docs/informes/FD05-informe-final.md` §6 |
 | **Demostración académica** | Escenario sobre `FRAMEWORK_TEST_ITEMS` en un Oracle Free local desechable; suites de reglas y de ejemplos de FAIL/ERROR; Terraform, copias, release y workflows **preparados**. La VM de Azure se menciona en los documentos pero **no se verificó**. | Parcial: ver estados «local / Oracle real / GitHub / Azure» en FD05 §6.2 |
-| **Trabajo futuro** | Usuarios individuales con roles y auditoría; otros motores; Oracle 11g; carga y rendimiento; integración con Jira/IDE; ahorro medido con un cliente. | [Futuro] |
+| **Trabajo futuro** | Recuperación de contraseña por correo y segundo factor; permisos por proyecto; historial no editable (auditoría inmutable); otros motores; Oracle 11g; carga y rendimiento; integración con Jira/IDE; ahorro medido con un cliente. | [Futuro] |
 
 ## 4. Objetivos
 
@@ -70,13 +70,15 @@ Los umbrales de OS‑1 y OS‑2 son **propuestas del equipo**; no hay medición.
 | --- | --- | --- | --- | --- |
 | OS‑1 | Primer resultado rápido | Tiempo de «abrir la aplicación» a «ver PASS/FAIL/ERROR» ≤ 5 min y sin ayuda en ≥ 4 de 5 participantes | `protocolo-usabilidad.md` con 3–5 compañeros, antes y después | **[Meta] sin medir** |
 | OS‑2 | Comprender el resultado | ≥ 80 % explica qué se esperaba y qué se obtuvo | Misma sesión | **[Meta] sin medir** |
-| OS‑3 | Resultados correctos y distinguibles | 100 % de los escenarios dan el estado documentado (PASS/FAIL en `ROW_COUNT`, `SCALAR_VALUE`, `EXISTS`; tabla inexistente → ERROR) | Pruebas contra Oracle desechable | **Verificado con Oracle real local (Fase 2)**: 23 pruebas Oracle y suite completa 198 passed el 18‑oct‑2026. **No repetido** después de los cambios de las Fases 3–4. |
+| OS‑3 | Resultados correctos y distinguibles | 100 % de los escenarios dan el estado documentado (PASS/FAIL en `ROW_COUNT`, `SCALAR_VALUE`, `EXISTS`; tabla inexistente → ERROR) | Pruebas contra Oracle desechable | **Verificado con Oracle real local**: 18‑oct‑2026 (Fase 2: 23 pruebas Oracle, suite 198 passed) y **26‑oct‑2026** tras usuarios, análisis y comparación (28 pruebas Oracle; suite completa 490 passed, 0 omitidas; Oracle Free desechable en Docker local). No repetido tras las correcciones del 28‑oct‑2026 (Docker apagado ese día). |
 | OS‑4 | Control de cambios | Filas antes = después tras `INSERT`, medido con conexión independiente; tabla intacta tras intento de `DROP`, con cuenta de privilegios mínimos | Pruebas Oracle desechable | **Verificado con Oracle real local (Fase 2)**, mismo alcance y salvedad. Límite: secuencias y transacciones autónomas no se revierten. |
 | OS‑5 | Evidencia conservada | 100 % de las ejecuciones producen un registro con SQL, esperado, obtenido, estado, fecha, duración y ambiente | `tests/test_quick_execution.py`, `tests/test_api.py` (simulados) y suite de Oracle (15 registros) | **Verificado** (simulado y Oracle real local) |
 | OS‑6 | Repetir y revisar | Caso ejecutado ≥ 2 veces → ≥ 2 registros ordenados por fecha | Suite repetida en la prueba Oracle (3 ejecuciones) | **Verificado** (Oracle real local) |
 | OS‑7 | Acceso desplegado | Abrir por HTTPS desde otra red, iniciar sesión y ejecutar un caso | Prueba manual con capturas | **No verificado** (Azure no se consultó) |
 | OS‑8 | Integraciones | CLI devuelve 0/1/2 según PASS/FAIL/ERROR; Excel importa con validación y exporta resultados | `tests/test_phase4_cli.py`, `tests/test_phase4_excel.py` | **Verificado en local** con un sustituto SQLite de Oracle; el workflow de GitHub **nunca se ejecutó** |
-| OS‑9 | Dashboard de uso | Cifras calculadas desde datos guardados, con definición de cada métrica y estado vacío | `tests/test_phase4_usage.py` | **Verificado en local** (reloj fijo); sin datos reales de uso |
+| OS‑9 | Dashboard de uso | Cifras calculadas desde datos guardados, con definición de cada métrica y estado vacío; uso por persona y por origen | `tests/test_phase4_usage.py`, `tests/test_usuarios.py` | **Verificado en local** (reloj fijo); sin datos reales de uso |
+| OS‑10 | Acceso por persona y rol | Sin sesión: 401; TESTER: 403 en usuarios, proyectos y conexiones; contraseñas solo como hash; bloqueo tras 5 fallos | `tests/test_usuarios.py`, `tests/test_auth.py` y matriz de permisos de las 52 operaciones de la API | **Verificado en local** (28‑oct‑2026) y en la imagen Docker con Oracle real (26‑oct‑2026) |
+| OS‑11 | Reglas sin escribir SQL | Analizar una tabla propone reglas que dan PASS sobre los mismos datos y FAIL al romper uno | `tests/test_analisis_tabla.py` (sustituto SQLite) y `tests/test_oracle_fase_c.py` (Oracle real) | **Verificado** (local y Oracle real local, 26‑oct‑2026) |
 
 ### 4.3 Hipótesis de utilidad (no medidas)
 
@@ -92,6 +94,7 @@ Hasta ejecutar `protocolo-usabilidad.md` y un cronometraje comparado, **ninguna 
 - VAN, S/ 8 000 anuales, 8 minutos, S/ 4 500 de implantación, etc. (FD01) son **escenarios de planificación**.
 - No hay compatibilidad con otros motores ni con Oracle anterior a 12.1 (el modo Thick y un cliente Oracle 19 podrían alcanzar la 11.2 según la documentación del controlador; **no verificado**, no implementado); no hay certificación de seguridad.
 - La URL en Azure figura en documentos; no se verificó.
+- No hay usuarios reales de la aplicación más allá del equipo: las cuentas Administrador/Tester se probaron con datos ficticios.
 
 ## 6. Dónde actualizar los demás documentos
 
