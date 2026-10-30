@@ -72,7 +72,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
-      - run: python -m pip install -r requirements.txt
+      # Mismas dependencias que el flujo Tests (requirements-dev trae PyYAML para las pruebas de compose y workflows).
+      - run: python -m pip install -r requirements.txt -r requirements-dev.txt
       - name: Sintaxis de JavaScript
         run: find frontend -name "*.js" -exec node --check {} \;
       - name: pytest (sin Oracle)
