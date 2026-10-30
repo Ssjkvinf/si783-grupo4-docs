@@ -165,6 +165,8 @@ jobs:
       TF_VAR_existing_vm_size: ${{ vars.AZURE_VM_SIZE }}
       TF_VAR_backup_storage_account_name: ${{ vars.BACKUP_STORAGE_ACCOUNT }}
       TF_VAR_backup_retention_days: ${{ vars.BACKUP_RETENTION_DAYS || '30' }}
+      # Región de la cuenta de copias (suscripciones de estudiante: solo regiones permitidas). Por defecto, la de la VM.
+      TF_VAR_backup_location: ${{ vars.BACKUP_LOCATION || vars.AZURE_LOCATION }}
       # Presupuesto opcional (solo alertas por correo): sin BUDGET_AMOUNT o sin BUDGET_ALERT_EMAILS no se crea.
       TF_VAR_budget_amount: ${{ vars.BUDGET_AMOUNT || '0' }}
       TF_VAR_budget_alert_emails: ${{ vars.BUDGET_ALERT_EMAILS || '[]' }}
