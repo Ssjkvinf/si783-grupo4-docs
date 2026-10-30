@@ -16,3 +16,6 @@ venv/
 .venv/
 .venv*/
 dist/
+
+# Reportes generados por los flujos de GitHub Actions
+reportes/

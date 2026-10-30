@@ -42,3 +42,9 @@ docker compose down -v
 ```
 
 El script de inicialización (`init/001_test_schema.sh`) crea automáticamente el usuario `FRAMEWORK_TEST` y la tabla `FRAMEWORK_TEST_ITEMS` requeridos para las pruebas DML en el servicio `FREEPDB1`.
+
+## Datos y escenario de demostración
+
+`init/001_test_schema.sh` crea la tabla `FRAMEWORK_TEST_ITEMS` **vacía**. Los datos de ejemplo los carga `demo/seed_demo_data.sql` (solo para este Oracle desechable). Pasos completos, reglas esperadas y limitaciones en [`docs/demostracion-fase2.md`](../../docs/demostracion-fase2.md).
+
+Los scripts `.sh` deben tener finales de línea LF (el repositorio lo fuerza con `.gitattributes`).

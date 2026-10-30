@@ -1,0 +1,158 @@
+name: Objetos de base de datos (Alembic + Liquibase)
+
+# Dos automatizaciones distintas, cada una sobre su base:
+#   1) SQLite INTERNA de la aplicación (proyectos, conexiones, casos, suites, historial) -> ALEMBIC.
+#      Se aplica `alembic upgrade head` dos veces sobre un archivo nuevo y se reporta el esquema.
+#   2) Objetos ORACLE de la demostración (esquema FRAMEWORK_TEST) -> LIQUIBASE.
+#      Se levanta un Oracle DESECHABLE dentro del propio job, se aplican los changelogs dos veces
+#      (la 2.ª no debe cambiar nada) y se corren las pruebas de integración contra ese Oracle.
+# No usa secretos ni toca Azure: todo ocurre en el runner y se descarta al terminar.
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "framework-pruebas-sql/alembic/**"
+      - "framework-pruebas-sql/app/models/**"
+      - "framework-pruebas-sql/infra/oracle/**"
+      - "framework-pruebas-sql/scripts/db/**"
+      - "framework-pruebas-sql/scripts/ci/**"
+      - ".github/workflows/db-objects.yml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "framework-pruebas-sql/alembic/**"
+      - "framework-pruebas-sql/app/models/**"
+      - "framework-pruebas-sql/infra/oracle/**"
+      - "framework-pruebas-sql/scripts/db/**"
+      - "framework-pruebas-sql/scripts/ci/**"
+      - ".github/workflows/db-objects.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Imagen de Oracle para CI (comunidad, arranque rápido). No requiere cuenta ni aceptar licencias en el registro de Oracle.
+  ORACLE_CI_IMAGE: gvenzl/oracle-free:23-slim-faststart
+  LIQUIBASE_IMAGE: liquibase/liquibase:4.33
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  sqlite-alembic:
+    name: SQLite interna (Alembic)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: framework-pruebas-sql
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - run: python -m pip install -r requirements.txt
+
+      - name: Migrar una SQLite nueva dos veces y reportar
+        run: |
+          mkdir -p ../reportes/alembic
+          python scripts/db/sqlite_migrations_report.py --out ../reportes/alembic/reporte_alembic.md --json ../reportes/alembic/reporte_alembic.json \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-alembic-sqlite
+          path: reportes/alembic/
+          retention-days: 30
+
+  oracle-liquibase:
+    name: Oracle desechable (Liquibase)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: framework-pruebas-sql
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generar contraseñas efímeras (se enmascaran y no se guardan)
+        run: |
+          sys_pwd="Sy$(openssl rand -hex 8)9a"
+          app_pwd="Ap$(openssl rand -hex 8)9a"
+          echo "::add-mask::$sys_pwd"
+          echo "::add-mask::$app_pwd"
+          echo "ORACLE_SYS_PWD=$sys_pwd" >> "$GITHUB_ENV"
+          echo "FRAMEWORK_TEST_PASSWORD=$app_pwd" >> "$GITHUB_ENV"
+
+      - name: Levantar Oracle desechable
+        run: |
+          docker network create fw_ci_net
+          docker run -d --name fw_ci_oracle --network fw_ci_net -p 127.0.0.1:1521:1521 \
+            -e ORACLE_PASSWORD="$ORACLE_SYS_PWD" -e APP_USER=FRAMEWORK_TEST -e APP_USER_PASSWORD="$FRAMEWORK_TEST_PASSWORD" \
+            "$ORACLE_CI_IMAGE"
+          # Espera con un inicio de sesión real (el contenedor no define healthcheck); diagnóstico si falla. 900 s por defecto.
+          bash scripts/ci/wait_for_oracle.sh fw_ci_oracle
+
+      - name: Privilegios que necesita Liquibase en FRAMEWORK_TEST
+        run: |
+          docker exec -i -e ORACLE_SYS_PWD fw_ci_oracle bash -c 'sqlplus -s "sys/${ORACLE_SYS_PWD}@//localhost:1521/FREEPDB1 as sysdba"' < infra/oracle/liquibase/grant_migration_privileges.sql
+
+      - name: Liquibase — validar, aplicar dos veces, historial
+        env:
+          LB_NETWORK: fw_ci_net
+          LB_JDBC_URL: jdbc:oracle:thin:@//fw_ci_oracle:1521/FREEPDB1
+          LB_USER: FRAMEWORK_TEST
+          LB_PASSWORD: ${{ env.FRAMEWORK_TEST_PASSWORD }}
+          LIQUIBASE_IMAGE: ${{ env.LIQUIBASE_IMAGE }}
+        run: bash scripts/db/liquibase_demo.sh ../reportes/liquibase/logs
+
+      - name: Objetos que quedaron en el esquema
+        run: |
+          printf '%s\n' "SET PAGESIZE 200 LINESIZE 150" "COLUMN object_name FORMAT A32" \
+            "SELECT object_type, object_name, status FROM user_objects ORDER BY object_type, object_name;" "EXIT" \
+            | docker exec -i -e FRAMEWORK_TEST_PASSWORD fw_ci_oracle bash -c 'sqlplus -s "FRAMEWORK_TEST/${FRAMEWORK_TEST_PASSWORD}@//localhost:1521/FREEPDB1"' \
+            > ../reportes/liquibase/objetos.txt
+
+      - name: Reporte de ejecuciones de Liquibase (comprueba la idempotencia)
+        run: |
+          python3 scripts/db/liquibase_report.py --logs ../reportes/liquibase/logs --out ../reportes/liquibase/reporte_liquibase.md \
+            --objects ../reportes/liquibase/objetos.txt --entorno "Oracle Free desechable en el runner (${ORACLE_CI_IMAGE})" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-python@v5
+        if: always()
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: framework-pruebas-sql/requirements.txt
+      - name: Pruebas de integración contra este Oracle (SELECT, INSERT con rollback, DROP rechazado, suite)
+        run: |
+          python -m pip install -r requirements.txt
+          export RUN_ORACLE_TESTS=1 ORACLE_HOST=127.0.0.1 ORACLE_PORT=1521 ORACLE_SERVICE=FREEPDB1 ORACLE_PWD="$ORACLE_SYS_PWD"
+          python -m pytest -q -m oracle_integration --junitxml=../reportes/liquibase/pytest_oracle.xml
+      - name: Reporte de las pruebas con Oracle
+        if: always()
+        run: |
+          if [ -f ../reportes/liquibase/pytest_oracle.xml ]; then
+            python scripts/reports/junit_to_md.py --junit ../reportes/liquibase/pytest_oracle.xml \
+              --out ../reportes/liquibase/reporte_pruebas_oracle.md --title "Pruebas de integración contra Oracle desechable" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Limpieza
+        if: always()
+        run: |
+          docker logs --tail 30 fw_ci_oracle > ../reportes/liquibase/oracle_ultimas_lineas.log 2>&1 || true
+          docker rm -f fw_ci_oracle >/dev/null 2>&1 || true
+          docker network rm fw_ci_net >/dev/null 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-liquibase-oracle
+          path: reportes/liquibase/
+          retention-days: 30

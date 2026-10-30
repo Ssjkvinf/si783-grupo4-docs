@@ -10,4 +10,5 @@ alembic upgrade head || { echo "Error aplicando migraciones"; exit 1; }
 
 # Iniciar la aplicación
 echo "Iniciando Uvicorn..."
-exec uvicorn app.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000}
+# --proxy-headers: usa X-Forwarded-For de los proxies listados en FORWARDED_ALLOW_IPS (en producción, Caddy).
+exec uvicorn app.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000} --proxy-headers

@@ -29,6 +29,13 @@ def get_existing_columns(table_name):
         return [c['name'] for c in inspector.get_columns(table_name)]
     return []
 
+def get_named_foreign_keys(table_name):
+    # En modo batch el error de una clave inexistente salta al cerrar el bloque (no en drop_constraint),
+    # así que solo se pide quitar las claves foráneas que de verdad existen con nombre.
+    conn = op.get_bind()
+    inspector = Inspector.from_engine(conn)
+    return {fk['name'] for fk in inspector.get_foreign_keys(table_name) if fk.get('name')}
+
 def upgrade() -> None:
     tables = get_existing_tables()
     
@@ -189,35 +196,31 @@ def downgrade() -> None:
     
     if 'execution_history' in tables:
         cols = get_existing_columns('execution_history')
+        fks = get_named_foreign_keys('execution_history')
         with op.batch_alter_table('execution_history', schema=None) as batch_op:
             for col in ['connection_profile_id', 'suite_id', 'project_id']:
-                if col in cols:
-                    try:
-                        batch_op.drop_constraint(f'fk_execution_history_{col}', type_='foreignkey')
-                    except Exception:
-                        pass
+                if col in cols and f'fk_execution_history_{col}' in fks:
+                    batch_op.drop_constraint(f'fk_execution_history_{col}', type_='foreignkey')
             for col in ['rollback_error', 'rollback_applied', 'rowcount', 'actual_result', 'expected_result', 'validation_type', 'statement_type', 'connection_profile_id', 'suite_id', 'project_id']:
                 if col in cols:
                     batch_op.drop_column(col)
                     
     if 'test_suites' in tables:
         cols = get_existing_columns('test_suites')
+        fks = get_named_foreign_keys('test_suites')
         with op.batch_alter_table('test_suites', schema=None) as batch_op:
             if 'project_id' in cols:
-                try:
+                if 'fk_test_suites_project_id' in fks:
                     batch_op.drop_constraint('fk_test_suites_project_id', type_='foreignkey')
-                except Exception:
-                    pass
                 batch_op.drop_column('project_id')
 
     if 'test_cases' in tables:
         cols = get_existing_columns('test_cases')
+        fks = get_named_foreign_keys('test_cases')
         with op.batch_alter_table('test_cases', schema=None) as batch_op:
             if 'project_id' in cols:
-                try:
+                if 'fk_test_cases_project_id' in fks:
                     batch_op.drop_constraint('fk_test_cases_project_id', type_='foreignkey')
-                except Exception:
-                    pass
                 batch_op.drop_column('project_id')
             if 'validation_type' in cols:
                 batch_op.drop_column('validation_type')

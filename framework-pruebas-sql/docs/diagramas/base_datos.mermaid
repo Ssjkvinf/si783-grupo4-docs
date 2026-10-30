@@ -1,59 +1,99 @@
+%% GENERADO por scripts/docs/gen_docs.py. No editar a mano.
+%% Base INTERNA (SQLite): metadatos e historial. No incluye la base Oracle objetivo.
 erDiagram
-    projects ||--o{ connection_profiles : has
-    projects ||--o{ test_cases : has
-    projects ||--o{ test_suites : has
-    projects ||--o{ execution_history : logs
-    test_suites ||--o{ suite_test_cases : contains
-    test_cases ||--o{ suite_test_cases : belongs_to
-
     projects {
-        int id PK
-        string name
-        string description
+        INTEGER id PK
+        VARCHAR name
+        VARCHAR description
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    users {
+        INTEGER id PK
+        VARCHAR username
+        VARCHAR full_name
+        VARCHAR password_hash
+        VARCHAR role
+        BOOLEAN active
+        INTEGER failed_attempts
+        DATETIME locked_until
+        INTEGER session_version
+        DATETIME created_at
+        DATETIME last_login_at
     }
     connection_profiles {
-        int id PK
-        int project_id FK
-        string name
-        string host
-        int port
-        string service_name
-        string username
-        string environment_type
+        INTEGER id PK
+        INTEGER project_id FK
+        VARCHAR name
+        VARCHAR engine
+        VARCHAR host
+        INTEGER port
+        VARCHAR service_name
+        VARCHAR username
+        VARCHAR environment_type
+        DATETIME created_at
+        DATETIME updated_at
     }
     test_cases {
-        int id PK
-        int project_id FK
-        string name
-        string sql_query
-        string validation_type
-        string expected_result
+        INTEGER id PK
+        INTEGER project_id FK
+        VARCHAR name
+        VARCHAR description
+        TEXT sql_query
+        VARCHAR expected_result
+        VARCHAR validation_type
+        DATETIME created_at
+        DATETIME updated_at
     }
     test_suites {
-        int id PK
-        int project_id FK
-        string name
+        INTEGER id PK
+        INTEGER project_id FK
+        VARCHAR name
+        VARCHAR description
+        DATETIME created_at
+        DATETIME updated_at
     }
-    suite_test_cases {
-        int suite_id PK,FK
-        int test_case_id PK,FK
+    usage_events {
+        INTEGER id PK
+        VARCHAR event_type
+        INTEGER project_id FK
+        VARCHAR source
+        VARCHAR detail
+        DATETIME created_at
     }
     execution_history {
-        int id PK
-        int project_id FK
-        int test_case_id FK
-        int suite_id FK
-        int connection_profile_id FK
-        string status
-        datetime executed_at
-        float duration_ms
-        string statement_type
-        string executed_sql
-        string validation_type
-        string expected_result
-        string actual_result
-        int rowcount
-        boolean rollback_applied
-        string rollback_error
-        string error_message
+        INTEGER id PK
+        INTEGER project_id FK
+        INTEGER test_case_id FK
+        INTEGER suite_id FK
+        INTEGER connection_profile_id FK
+        VARCHAR status
+        DATETIME executed_at
+        FLOAT duration_ms
+        VARCHAR statement_type
+        TEXT executed_sql
+        VARCHAR validation_type
+        VARCHAR expected_result
+        TEXT actual_result
+        INTEGER rowcount
+        BOOLEAN rollback_applied
+        TEXT rollback_error
+        TEXT error_message
+        VARCHAR trigger_source
+        VARCHAR run_id
+        VARCHAR executed_by
     }
+    suite_test_case {
+        INTEGER suite_id PK,FK
+        INTEGER test_case_id PK,FK
+    }
+    projects ||--o{ connection_profiles : "project_id"
+    projects ||--o{ test_cases : "project_id"
+    projects ||--o{ test_suites : "project_id"
+    projects |o--o{ usage_events : "project_id"
+    projects ||--o{ execution_history : "project_id"
+    test_cases |o--o{ execution_history : "test_case_id"
+    test_suites |o--o{ execution_history : "suite_id"
+    connection_profiles |o--o{ execution_history : "connection_profile_id"
+    test_suites ||--o{ suite_test_case : "suite_id"
+    test_cases ||--o{ suite_test_case : "test_case_id"

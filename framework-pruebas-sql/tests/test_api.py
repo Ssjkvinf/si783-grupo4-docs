@@ -8,6 +8,17 @@ from app.main import app
 client = TestClient(app)
 
 
+def _perfil(environment_type="TEST"):
+    """Crea un proyecto y un perfil de conexión guardado; devuelve (project_id, connection_profile_id)."""
+    proj = client.post("/api/projects/", json={"name": f"Proyecto {environment_type}"}).json()
+    conn = client.post("/api/connections/", json={
+        "project_id": proj["id"], "name": f"Perfil {environment_type}", "engine": "ORACLE",
+        "host": "oracle.local", "port": 1521, "service_name": "FREEPDB1",
+        "username": "usuario_prueba", "environment_type": environment_type,
+    }).json()
+    return proj["id"], conn["id"]
+
+
 def test_delete_non_existent_test_case_returns_404():
     """Verifica que eliminar un ID inexistente devuelva HTTP 404."""
     response = client.delete("/api/test-cases/999999")
@@ -17,9 +28,9 @@ def test_delete_non_existent_test_case_returns_404():
 
 def test_execute_raw_controlled_error_returns_400():
     """Verifica que errores SQL controlados (ej. DDL prohibido) devuelvan HTTP 400."""
+    _, conn_id = _perfil("TEST")
     payload = {
-        "dsn": "localhost/xe",
-        "user": "test_user",
+        "connection_profile_id": conn_id,
         "password": "super_secret_password_999",
         "sql_query": "DROP TABLE users"
     }
@@ -43,8 +54,11 @@ def test_execute_saved_test_case_and_suite_without_exposing_passwords(mock_execu
         "rollback_error": None
     }
 
+    proj_id, conn_id = _perfil("TEST")
+
     # 1. Crear un caso de prueba
     tc_res = client.post("/api/test-cases/", json={
+        "project_id": proj_id,
         "name": "TC Secret Test",
         "description": "TestCase de Integración",
         "sql_query": "SELECT * FROM dual",
@@ -56,8 +70,7 @@ def test_execute_saved_test_case_and_suite_without_exposing_passwords(mock_execu
     # 2. Ejecutar el caso guardado pasando sólo credenciales (SIN sql_query en el body)
     secret_pass = "my_top_secret_oracle_pass_777"
     exec_res = client.post(f"/api/execute/test-case/{tc_id}", json={
-        "dsn": "localhost/xe",
-        "user": "oracle_user",
+        "connection_profile_id": conn_id,
         "password": secret_pass
     })
     assert exec_res.status_code == 200
@@ -67,6 +80,7 @@ def test_execute_saved_test_case_and_suite_without_exposing_passwords(mock_execu
 
     # 3. Crear una Suite y vincularle el caso
     suite_res = client.post("/api/suites/", json={
+        "project_id": proj_id,
         "name": "Suite Secreta",
         "description": "Prueba de Suite"
     })
@@ -79,8 +93,7 @@ def test_execute_saved_test_case_and_suite_without_exposing_passwords(mock_execu
 
     # 4. Ejecutar la suite completa pasando sólo credenciales (SIN sql_query en el body)
     exec_suite_res = client.post(f"/api/execute/suite/{suite_id}", json={
-        "dsn": "localhost/xe",
-        "user": "oracle_user",
+        "connection_profile_id": conn_id,
         "password": secret_pass
     })
     assert exec_suite_res.status_code == 200
@@ -101,12 +114,11 @@ def test_list_cases_and_suites_functional():
 
 def test_execute_raw_production_dml_blocked():
     """Verifica que un DML enviado a PRODUCTION por /api/execute/raw falle estrictamente."""
+    _, conn_id = _perfil("PRODUCTION")
     payload = {
-        "dsn": "localhost/xe",
-        "user": "test_user",
+        "connection_profile_id": conn_id,
         "password": "secret_password",
-        "sql_query": "INSERT INTO users(id) VALUES(1)",
-        "environment_type": "PRODUCTION"
+        "sql_query": "INSERT INTO users(id) VALUES(1)"
     }
     response = client.post("/api/execute/raw", json=payload)
     assert response.status_code == 400
@@ -166,38 +178,44 @@ def test_invalid_environment_returns_400(mock_resolve):
 
 def test_execute_raw_production_for_update_blocked():
     """Verifica que SELECT ... FOR UPDATE sea bloqueado en PRODUCTION."""
+    _, conn_id = _perfil("PRODUCTION")
     payload = {
-        "dsn": "localhost/xe",
-        "user": "test_user",
+        "connection_profile_id": conn_id,
         "password": "secret_password",
-        "sql_query": "SELECT * FROM users FOR UPDATE",
-        "environment_type": "PRODUCTION"
+        "sql_query": "SELECT * FROM users FOR UPDATE"
     }
     response = client.post("/api/execute/raw", json=payload)
     assert response.status_code == 400
     assert "FOR UPDATE están bloqueadas en Producción" in response.json()["detail"]
 
-def test_execute_raw_direct_dsn_default_to_production():
-    """Verifica que si se omite environment_type en conexión directa, se asume PRODUCTION."""
-    payload = {
-        "dsn": "localhost/xe",
-        "user": "test_user",
-        "password": "secret_password",
-        "sql_query": "DELETE FROM users"
-        # Sin environment_type explícito
-    }
-    response = client.post("/api/execute/raw", json=payload)
-    assert response.status_code == 400
-    assert "En producción solo se permiten sentencias SELECT" in response.json()["detail"]
+@patch("oracledb.connect")
+def test_execute_raw_rechaza_dsn_libre_en_todas_las_rutas(mock_connect):
+    """Fase 2: ninguna ruta de ejecución acepta ya un dsn/user libre; no se intenta conectar a nada."""
+    proj_id, conn_id = _perfil("TEST")
+    tc = client.post("/api/test-cases/", json={"project_id": proj_id, "name": "c", "sql_query": "SELECT 1 FROM dual", "expected_result": "1"}).json()["id"]
+    suite = client.post("/api/suites/", json={"project_id": proj_id, "name": "s"}).json()["id"]
+    libre = {"dsn": "servidor-externo:1521/xe", "user": "u", "password": "p", "sql_query": "SELECT 1 FROM dual"}
 
-def test_execute_raw_direct_dsn_with_test_env_blocked():
-    """Verifica que un DSN directo con environment_type=TEST sea ignorado y forzado a PRODUCTION."""
+    assert client.post("/api/execute/raw", json=libre).status_code == 422
+    assert client.post(f"/api/execute/test-case/{tc}", json={k: v for k, v in libre.items() if k != "sql_query"}).status_code == 422
+    assert client.post(f"/api/execute/suite/{suite}", json={k: v for k, v in libre.items() if k != "sql_query"}).status_code == 422
+    # incluso junto a un perfil válido, el campo dsn se rechaza (no se ignora en silencio)
+    assert client.post("/api/execute/raw", json={**libre, "connection_profile_id": conn_id}).status_code == 422
+    mock_connect.assert_not_called()
+
+
+def test_execute_raw_exige_perfil_guardado():
+    response = client.post("/api/execute/raw", json={"password": "x", "sql_query": "SELECT 1 FROM dual"})
+    assert response.status_code == 422
+
+def test_execute_raw_ignora_environment_type_del_cliente():
+    """El ambiente sale del perfil: un cliente no puede 'bajar' PRODUCTION a TEST."""
+    _, conn_id = _perfil("PRODUCTION")
     payload = {
-        "dsn": "localhost/xe",
-        "user": "test_user",
+        "connection_profile_id": conn_id,
         "password": "secret_password",
         "sql_query": "DELETE FROM users",
-        "environment_type": "TEST" # Cliente intenta evadir
+        "environment_type": "TEST"  # el cliente intenta evadir
     }
     response = client.post("/api/execute/raw", json=payload)
     assert response.status_code == 400

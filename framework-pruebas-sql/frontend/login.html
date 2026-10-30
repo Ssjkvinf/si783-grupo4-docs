@@ -3,124 +3,345 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso - SQL QA Framework</title>
+    <title>Ingresar · SQL QA Framework</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        body {
-            background-color: #f8f9fa;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        :root {
+            --c1: #4f46e5; --c2: #7c3aed; --c3: #06b6d4; --ok: #10b981; --warn: #f59e0b; --bad: #ef4444;
+            --ink: #0f172a; --muted: #64748b; --line: #e2e8f0;
         }
-        .login-card {
-            max-width: 400px;
-            width: 100%;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            background: white;
-            padding: 2rem;
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; color: var(--ink); background: #f1f5f9; }
+        .acceso { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 100vh; }
+
+        /* ------- Panel de presentación ------- */
+        .presentacion { position: relative; overflow: hidden; color: #fff; padding: 3.5rem 3.5rem 2.5rem;
+            background: linear-gradient(135deg, #312e81 0%, var(--c1) 40%, var(--c2) 70%, #0e7490 100%);
+            background-size: 200% 200%; animation: fondo 18s ease infinite; display: flex; flex-direction: column; }
+        @keyframes fondo { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        .burbuja { position: absolute; border-radius: 50%; filter: blur(2px); opacity: .25; animation: flotar 14s ease-in-out infinite; }
+        .b1 { width: 340px; height: 340px; background: var(--c3); top: -90px; right: -80px; }
+        .b2 { width: 220px; height: 220px; background: #f472b6; bottom: 8%; left: -70px; animation-delay: -5s; }
+        .b3 { width: 140px; height: 140px; background: #facc15; bottom: 30%; right: 12%; animation-delay: -9s; opacity: .18; }
+        @keyframes flotar { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(18px, -26px) scale(1.06); } }
+        .marca { display: flex; align-items: center; gap: .75rem; font-weight: 800; font-size: 1.25rem; position: relative; }
+        .marca .logo { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 1.4rem;
+            background: rgba(255,255,255,.18); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.3); }
+        .presentacion h1 { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 800; line-height: 1.15; margin: 3rem 0 1rem; position: relative; }
+        .presentacion h1 span { background: linear-gradient(90deg, #a5f3fc, #fde68a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .presentacion p.lema { font-size: 1.05rem; opacity: .92; max-width: 34rem; position: relative; }
+        .pasos { list-style: none; padding: 0; margin: 2rem 0; position: relative; display: grid; gap: .8rem; max-width: 30rem; }
+        .pasos li { display: flex; gap: .85rem; align-items: flex-start; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18);
+            border-radius: 14px; padding: .8rem 1rem; backdrop-filter: blur(6px); opacity: 0; transform: translateY(12px); animation: entrar .6s ease forwards; }
+        .pasos li:nth-child(1) { animation-delay: .15s; } .pasos li:nth-child(2) { animation-delay: .3s; } .pasos li:nth-child(3) { animation-delay: .45s; }
+        .pasos .num { flex: 0 0 30px; height: 30px; border-radius: 50%; background: #fff; color: var(--c1); font-weight: 800; display: grid; place-items: center; }
+        .pasos b { display: block; }
+        .pasos small { opacity: .85; }
+        .resultados-demo { display: flex; gap: .5rem; flex-wrap: wrap; position: relative; margin-top: auto; }
+        .chip { font-weight: 700; font-size: .8rem; padding: .35rem .75rem; border-radius: 999px; background: rgba(255,255,255,.95); display: inline-flex; gap: .35rem; align-items: center;
+            animation: latir 3s ease-in-out infinite; }
+        .chip.ok { color: #047857; } .chip.fail { color: #b45309; animation-delay: .5s; } .chip.err { color: #b91c1c; animation-delay: 1s; }
+        @keyframes latir { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        .presentacion .pie { font-size: .8rem; opacity: .75; margin-top: 1.25rem; position: relative; }
+
+        /* ------- Panel del formulario ------- */
+        .formulario { display: flex; align-items: center; justify-content: center; padding: 2rem 1.25rem; }
+        .tarjeta { width: 100%; max-width: 440px; background: #fff; border-radius: 22px; padding: 2.2rem 2rem;
+            box-shadow: 0 20px 50px -12px rgba(79,70,229,.25), 0 2px 6px rgba(15,23,42,.05); animation: aparecer .5s ease both; }
+        @keyframes aparecer { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: none; } }
+        @keyframes entrar { to { opacity: 1; transform: none; } }
+        .tarjeta h2 { font-weight: 800; font-size: 1.5rem; margin-bottom: .25rem; }
+        .tarjeta .sub { color: var(--muted); font-size: .92rem; margin-bottom: 1.5rem; }
+        .pestanas { display: grid; grid-template-columns: 1fr 1fr; background: #f1f5f9; border-radius: 12px; padding: 4px; margin-bottom: 1.5rem; position: relative; }
+        .pestanas button { border: 0; background: transparent; padding: .6rem; border-radius: 9px; font-weight: 600; color: var(--muted); position: relative; z-index: 1; transition: color .25s; }
+        .pestanas button.activa { color: var(--c1); }
+        .pestanas .indicador { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); background: #fff; border-radius: 9px;
+            box-shadow: 0 2px 8px rgba(15,23,42,.08); transition: transform .3s cubic-bezier(.4,0,.2,1); }
+        .pestanas.registro .indicador { transform: translateX(100%); }
+        .panel { animation: aparecer .35s ease both; }
+        .form-label { font-weight: 600; font-size: .85rem; color: #334155; }
+        .campo { position: relative; }
+        .campo > i.bi { position: absolute; left: .9rem; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; transition: color .2s; }
+        .campo .form-control { padding: .7rem .9rem .7rem 2.5rem; border-radius: 12px; border: 1.5px solid var(--line); transition: border-color .2s, box-shadow .2s; }
+        .campo .form-control:focus { border-color: var(--c1); box-shadow: 0 0 0 4px rgba(79,70,229,.12); }
+        .campo:focus-within > i.bi { color: var(--c1); }
+        .campo .ver { position: absolute; right: .4rem; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: #94a3b8; padding: .4rem .6rem; border-radius: 8px; }
+        .campo .ver:hover { color: var(--c1); background: #eef2ff; }
+        .btn-principal { width: 100%; border: 0; color: #fff; font-weight: 700; padding: .8rem; border-radius: 12px;
+            background: linear-gradient(90deg, var(--c1), var(--c2), var(--c3)); background-size: 200% 100%; transition: background-position .5s, transform .15s, box-shadow .2s;
+            box-shadow: 0 10px 22px -8px rgba(79,70,229,.6); }
+        .btn-principal:hover { background-position: 100% 0; transform: translateY(-1px); }
+        .btn-principal:active { transform: translateY(1px); }
+        .btn-principal:disabled { opacity: .7; }
+        .aviso { border-radius: 12px; font-size: .88rem; padding: .7rem .9rem; display: flex; gap: .55rem; align-items: flex-start; animation: aparecer .3s ease both; }
+        .aviso.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .aviso.ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .aviso.info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .agitar { animation: agitar .4s ease; }
+        @keyframes agitar { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+        .mayus { font-size: .78rem; color: #b45309; margin-top: .35rem; }
+        .fuerza { height: 6px; border-radius: 6px; background: #e2e8f0; overflow: hidden; margin-top: .5rem; }
+        .fuerza > div { height: 100%; width: 0; border-radius: 6px; transition: width .35s ease, background-color .35s; }
+        .reglas { list-style: none; padding: 0; margin: .5rem 0 0; font-size: .78rem; color: var(--muted); display: grid; gap: .15rem; }
+        .reglas li i { margin-right: .3rem; }
+        .reglas li.cumple { color: #047857; }
+        .seguridad { display: flex; flex-wrap: wrap; gap: .4rem .9rem; justify-content: center; font-size: .75rem; color: var(--muted); margin-top: 1.4rem; }
+        .seguridad i { color: var(--ok); }
+
+        @media (max-width: 900px) {
+            .acceso { grid-template-columns: 1fr; }
+            .presentacion { padding: 2rem 1.25rem 1.5rem; }
+            .presentacion h1 { margin-top: 1.5rem; font-size: 1.6rem; }
+            .pasos, .presentacion .pie { display: none; }
+            .resultados-demo { margin-top: 1rem; }
         }
-        .login-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .login-header i {
-            font-size: 3rem;
-            color: #0d6efd;
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+            .pasos li { opacity: 1; transform: none; }
         }
     </style>
 </head>
 <body>
-
-    <div class="login-card">
-        <div class="login-header">
-            <i class="bi bi-shield-lock-fill"></i>
-            <h4 class="mt-3 fw-bold">SQL QA Framework</h4>
-            <p class="text-muted small">Acceso seguro al sistema de pruebas</p>
+<main class="acceso">
+    <section class="presentacion" aria-label="Qué es la aplicación">
+        <div class="burbuja b1"></div><div class="burbuja b2"></div><div class="burbuja b3"></div>
+        <div class="marca"><div class="logo"><i class="bi bi-database-check"></i></div> SQL QA Framework</div>
+        <h1>Compruebe sus consultas SQL en Oracle <span>y guarde la evidencia.</span></h1>
+        <p class="lema">Escriba qué espera que devuelva una consulta, ejecútela contra su base de pruebas y la aplicación le dice si coincide. Cada ejecución queda registrada para repetirla cuando quiera.</p>
+        <ul class="pasos">
+            <li><span class="num">1</span><div><b>Elija una regla o escriba su SQL</b><small>«¿Hay clientes sin correo?», «¿la tabla tiene filas?»…</small></div></li>
+            <li><span class="num">2</span><div><b>Diga qué resultado espera</b><small>Un número, sí/no o un valor: la aplicación decide cómo comparar.</small></div></li>
+            <li><span class="num">3</span><div><b>Ejecute y entienda el resultado</b><small>PASS, FAIL o ERROR explicados en lenguaje claro.</small></div></li>
+        </ul>
+        <div class="resultados-demo" aria-hidden="true">
+            <span class="chip ok"><i class="bi bi-check-circle-fill"></i> PASS · 3 de 3 filas</span>
+            <span class="chip fail"><i class="bi bi-exclamation-triangle-fill"></i> FAIL · esperaba 0, hubo 2</span>
+            <span class="chip err"><i class="bi bi-shield-x"></i> DROP rechazado</span>
         </div>
+        <div class="pie">Proyecto académico SI783 · UPT. Las sentencias peligrosas (DROP, ALTER, TRUNCATE…) se rechazan antes de llegar a la base y los cambios de prueba se revierten.</div>
+    </section>
 
-        <form id="login-form">
-            <div id="error-alert" class="alert alert-danger d-none small" role="alert">
-                Usuario o contraseña incorrectos.
+    <section class="formulario">
+        <div class="tarjeta">
+            <h2 id="titulo-panel">Bienvenido de nuevo</h2>
+            <p class="sub" id="sub-panel">Ingrese con su usuario para continuar.</p>
+
+            <div class="pestanas" id="pestanas" role="tablist">
+                <span class="indicador"></span>
+                <button type="button" class="activa" id="tab-ingresar" role="tab" aria-selected="true">Ingresar</button>
+                <button type="button" id="tab-registro" role="tab" aria-selected="false">Solicitar acceso</button>
             </div>
 
-            <div class="mb-3">
-                <label for="username" class="form-label fw-bold small">Usuario</label>
-                <input type="text" class="form-control" id="username" required autofocus>
-            </div>
-            <div class="mb-4">
-                <label for="password" class="form-label fw-bold small">Contraseña</label>
-                <div class="input-group">
-                    <input type="password" class="form-control" id="password" required>
-                    <button class="btn btn-outline-secondary" type="button" id="btn-show-pwd" aria-label="Mostrar contraseña">
-                        <i class="bi bi-eye"></i>
-                    </button>
+            <div id="mensaje" class="mb-3" aria-live="polite"></div>
+
+            <!-- Ingresar -->
+            <form id="login-form" class="panel" autocomplete="on" novalidate>
+                <div class="mb-3">
+                    <label for="username" class="form-label">Usuario</label>
+                    <div class="campo"><i class="bi bi-person"></i>
+                        <input type="text" class="form-control" id="username" autocomplete="username" maxlength="50" required autofocus placeholder="su.usuario">
+                    </div>
                 </div>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Contraseña</label>
+                    <div class="campo"><i class="bi bi-lock"></i>
+                        <input type="password" class="form-control" id="password" autocomplete="current-password" maxlength="200" required placeholder="••••••••••">
+                        <button class="ver" type="button" data-ver="password" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+                    </div>
+                    <div class="mayus d-none" id="mayus-login"><i class="bi bi-capslock-fill"></i> Bloq Mayús está activado</div>
+                </div>
+                <button type="submit" class="btn-principal" id="btn-submit">
+                    <span id="btn-text"><i class="bi bi-box-arrow-in-right me-1"></i> Ingresar</span>
+                    <span id="btn-spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                </button>
+                <p class="text-center small text-muted mt-3 mb-0">¿No tiene cuenta? <a href="#" id="ir-registro" class="fw-semibold text-decoration-none">Solicite acceso</a></p>
+            </form>
+
+            <!-- Solicitar acceso -->
+            <form id="registro-form" class="panel d-none" autocomplete="off" novalidate>
+                <div class="mb-3">
+                    <label for="reg-nombre" class="form-label">Nombre completo</label>
+                    <div class="campo"><i class="bi bi-person-badge"></i>
+                        <input type="text" class="form-control" id="reg-nombre" maxlength="120" required placeholder="Ana Pérez">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="reg-usuario" class="form-label">Usuario</label>
+                    <div class="campo"><i class="bi bi-at"></i>
+                        <input type="text" class="form-control" id="reg-usuario" maxlength="50" required placeholder="ana.perez" autocomplete="username">
+                    </div>
+                    <div class="form-text">Empieza con una letra; 3 a 50 caracteres (letras, números, punto o guion).</div>
+                </div>
+                <div class="mb-3">
+                    <label for="reg-clave" class="form-label">Contraseña</label>
+                    <div class="campo"><i class="bi bi-key"></i>
+                        <input type="password" class="form-control" id="reg-clave" maxlength="200" required autocomplete="new-password">
+                        <button class="ver" type="button" data-ver="reg-clave" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+                    </div>
+                    <div class="fuerza"><div id="fuerza-barra"></div></div>
+                    <ul class="reglas" id="reglas">
+                        <li data-regla="largo"><i class="bi bi-circle"></i>Al menos 10 caracteres</li>
+                        <li data-regla="mezcla"><i class="bi bi-circle"></i>Letras y números</li>
+                        <li data-regla="usuario"><i class="bi bi-circle"></i>No contiene su usuario</li>
+                    </ul>
+                </div>
+                <div class="mb-4">
+                    <label for="reg-clave2" class="form-label">Repita la contraseña</label>
+                    <div class="campo"><i class="bi bi-key-fill"></i>
+                        <input type="password" class="form-control" id="reg-clave2" maxlength="200" required autocomplete="new-password">
+                    </div>
+                </div>
+                <button type="submit" class="btn-principal" id="btn-registro">
+                    <span><i class="bi bi-send me-1"></i> Enviar solicitud</span>
+                </button>
+                <p class="text-center small text-muted mt-3 mb-0">Un administrador revisa y aprueba cada solicitud. Su cuenta empieza con el rol <b>Tester</b>.</p>
+            </form>
+
+            <div class="seguridad">
+                <span><i class="bi bi-shield-check"></i> Contraseñas con hash y sal</span>
+                <span><i class="bi bi-clock-history"></i> Sesión de 8 horas</span>
+                <span><i class="bi bi-lock"></i> Bloqueo tras 5 intentos</span>
             </div>
-            
-            <button type="submit" class="btn btn-primary w-100 fw-bold" id="btn-submit">
-                <span id="btn-text">Ingresar</span>
-                <span id="btn-spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-            </button>
-        </form>
-    </div>
+        </div>
+    </section>
+</main>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const form = document.getElementById('login-form');
-            const btnShowPwd = document.getElementById('btn-show-pwd');
-            const inputPwd = document.getElementById('password');
-            const btnSubmit = document.getElementById('btn-submit');
-            const btnText = document.getElementById('btn-text');
-            const btnSpinner = document.getElementById('btn-spinner');
-            const errorAlert = document.getElementById('error-alert');
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const $ = (id) => document.getElementById(id);
+    const mensaje = $('mensaje');
+    const tarjeta = document.querySelector('.tarjeta');
 
-            // Toggle password visibility
-            btnShowPwd.addEventListener('click', () => {
-                const type = inputPwd.getAttribute('type') === 'password' ? 'text' : 'password';
-                inputPwd.setAttribute('type', type);
-                btnShowPwd.innerHTML = type === 'password' ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
-            });
+    function avisar(tipo, texto) {
+        const icono = { error: 'bi-exclamation-octagon-fill', ok: 'bi-check-circle-fill', info: 'bi-info-circle-fill' }[tipo];
+        mensaje.innerHTML = '';
+        if (!texto) return;
+        const div = document.createElement('div');
+        div.className = 'aviso ' + tipo;
+        div.innerHTML = '<i class="bi ' + icono + '"></i><span></span>';
+        div.querySelector('span').textContent = texto;
+        mensaje.appendChild(div);
+        if (tipo === 'error') { tarjeta.classList.remove('agitar'); void tarjeta.offsetWidth; tarjeta.classList.add('agitar'); }
+    }
 
-            // Handle submit
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                const username = document.getElementById('username').value;
-                const password = inputPwd.value;
+    function mostrar(panel) {
+        const registro = panel === 'registro';
+        $('login-form').classList.toggle('d-none', registro);
+        $('registro-form').classList.toggle('d-none', !registro);
+        $('pestanas').classList.toggle('registro', registro);
+        $('tab-ingresar').classList.toggle('activa', !registro);
+        $('tab-registro').classList.toggle('activa', registro);
+        $('tab-ingresar').setAttribute('aria-selected', String(!registro));
+        $('tab-registro').setAttribute('aria-selected', String(registro));
+        $('titulo-panel').textContent = registro ? 'Solicite su cuenta' : 'Bienvenido de nuevo';
+        $('sub-panel').textContent = registro ? 'Complete sus datos; un administrador aprobará el acceso.' : 'Ingrese con su usuario para continuar.';
+        avisar(null);
+        (registro ? $('reg-nombre') : $('username')).focus();
+    }
+    $('tab-ingresar').addEventListener('click', () => mostrar('ingresar'));
+    $('tab-registro').addEventListener('click', () => mostrar('registro'));
+    $('ir-registro').addEventListener('click', (e) => { e.preventDefault(); mostrar('registro'); });
 
-                // Reset state
-                errorAlert.classList.add('d-none');
-                btnSubmit.disabled = true;
-                btnText.classList.add('d-none');
-                btnSpinner.classList.remove('d-none');
+    document.querySelectorAll('[data-ver]').forEach((btn) => btn.addEventListener('click', () => {
+        const input = $(btn.dataset.ver);
+        const visible = input.type === 'password';
+        input.type = visible ? 'text' : 'password';
+        btn.innerHTML = visible ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+        btn.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    }));
 
-                try {
-                    const response = await fetch('/api/login', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ username, password })
-                    });
+    $('password').addEventListener('keyup', (e) => {
+        if (e.getModifierState) $('mayus-login').classList.toggle('d-none', !e.getModifierState('CapsLock'));
+    });
 
-                    if (response.ok) {
-                        window.location.href = '/ui/'; // Redirigir al inicio del framework
-                    } else {
-                        errorAlert.classList.remove('d-none');
-                    }
-                } catch (error) {
-                    errorAlert.classList.remove('d-none');
-                    errorAlert.textContent = 'Error de conexión. Intente nuevamente.';
-                } finally {
-                    btnSubmit.disabled = false;
-                    btnText.classList.remove('d-none');
-                    btnSpinner.classList.add('d-none');
-                }
-            });
+    // ----------------------------------------------------------------- Ingresar
+    $('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = $('username').value.trim();
+        const password = $('password').value;
+        if (!username || !password) { avisar('error', 'Escriba su usuario y su contraseña.'); return; }
+        avisar(null);
+        $('btn-submit').disabled = true;
+        $('btn-text').classList.add('d-none');
+        $('btn-spinner').classList.remove('d-none');
+        try {
+            const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+            const data = await r.json().catch(() => ({}));
+            if (r.ok) {
+                if (data.cambiar_contrasena_recomendado) sessionStorage.setItem('sugerir_cambio_clave', '1');
+                avisar('ok', '¡Listo! Entrando…');
+                window.location.href = '/ui/';
+                return;
+            }
+            avisar('error', data.detail || 'No se pudo ingresar.');
+            $('password').value = '';
+            $('password').focus();
+        } catch (err) {
+            avisar('error', 'Error de conexión. Intente nuevamente.');
+        } finally {
+            $('btn-submit').disabled = false;
+            $('btn-text').classList.remove('d-none');
+            $('btn-spinner').classList.add('d-none');
+        }
+    });
+
+    // ----------------------------------------------------------------- Solicitar acceso
+    function revisarClave() {
+        const clave = $('reg-clave').value;
+        const usuario = $('reg-usuario').value.trim().toLowerCase();
+        const reglas = {
+            largo: clave.length >= 10,
+            mezcla: /[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(clave) && /[0-9]/.test(clave),
+            usuario: clave.length > 0 && (!usuario || !clave.toLowerCase().includes(usuario)),
+        };
+        document.querySelectorAll('#reglas li').forEach((li) => {
+            const ok = reglas[li.dataset.regla];
+            li.classList.toggle('cumple', ok);
+            li.querySelector('i').className = ok ? 'bi bi-check-circle-fill' : 'bi bi-circle';
         });
-    </script>
+        let puntos = Object.values(reglas).filter(Boolean).length;
+        if (clave.length >= 14) puntos++;
+        if (/[^A-Za-z0-9]/.test(clave)) puntos++;
+        const colores = ['#ef4444', '#ef4444', '#f59e0b', '#eab308', '#10b981', '#059669'];
+        const barra = $('fuerza-barra');
+        barra.style.width = clave ? Math.min(100, puntos * 20) + '%' : '0';
+        barra.style.backgroundColor = colores[puntos];
+        return reglas.largo && reglas.mezcla && reglas.usuario;
+    }
+    $('reg-clave').addEventListener('input', revisarClave);
+    $('reg-usuario').addEventListener('input', revisarClave);
+
+    $('registro-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const datos = { full_name: $('reg-nombre').value.trim(), username: $('reg-usuario').value.trim(), password: $('reg-clave').value };
+        if (datos.full_name.length < 3) { avisar('error', 'Escriba su nombre completo.'); return; }
+        if (!/^[A-Za-z][A-Za-z0-9._-]{2,49}$/.test(datos.username)) { avisar('error', 'El usuario debe empezar con una letra y tener de 3 a 50 caracteres.'); return; }
+        if (!revisarClave()) { avisar('error', 'La contraseña todavía no cumple las reglas.'); return; }
+        if (datos.password !== $('reg-clave2').value) { avisar('error', 'Las contraseñas no coinciden.'); return; }
+        $('btn-registro').disabled = true;
+        try {
+            const r = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) });
+            const data = await r.json().catch(() => ({}));
+            if (r.ok) {
+                $('registro-form').reset();
+                revisarClave();
+                mostrar('ingresar');
+                $('username').value = datos.username;
+                avisar('ok', data.detail || 'Solicitud enviada.');
+            } else {
+                const detalle = Array.isArray(data.detail) ? 'Revise los datos del formulario.' : data.detail;
+                avisar('error', detalle || 'No se pudo enviar la solicitud.');
+            }
+        } catch (err) {
+            avisar('error', 'Error de conexión. Intente nuevamente.');
+        } finally {
+            $('btn-registro').disabled = false;
+        }
+    });
+});
+</script>
 </body>
 </html>

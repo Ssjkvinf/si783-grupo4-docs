@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import subprocess
+import sys
 import pytest
 from sqlalchemy import create_engine, inspect
 from fastapi.testclient import TestClient
@@ -17,7 +18,7 @@ def test_scenario_a_empty_db(tmp_path):
     # 1. Ejecutar alembic upgrade head en un subproceso
     env = os.environ.copy()
     env["FRAMEWORK_DB_URL"] = f"sqlite:///{db_path}"
-    subprocess.run(["alembic", "upgrade", "head"], env=env, check=True)
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], env=env, check=True)
     
     # 2. Validar esquema completo
     insp, tables = get_inspect_info(db_path)
@@ -114,7 +115,7 @@ def test_scenario_b_legacy(tmp_path):
         
     env = os.environ.copy()
     env["FRAMEWORK_DB_URL"] = f"sqlite:///{db_path}"
-    subprocess.run(["alembic", "upgrade", "head"], env=env, check=True)
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], env=env, check=True)
     
     insp, tables = get_inspect_info(db_path)
     assert "suite_test_case" in tables
@@ -156,7 +157,7 @@ def test_scenario_c_no_version(tmp_path):
         
     env = os.environ.copy()
     env["FRAMEWORK_DB_URL"] = f"sqlite:///{db_path}"
-    subprocess.run(["alembic", "upgrade", "head"], env=env, check=True)
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], env=env, check=True)
     
     insp, tables = get_inspect_info(db_path)
     assert "suite_test_case" in tables

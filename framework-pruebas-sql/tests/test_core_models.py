@@ -214,10 +214,18 @@ def test_12_connection_test_simulated(mock_connect):
     assert "wrong_pass" not in res_err.text
 
 
+def _crear_perfil(project_id, environment_type="TEST"):
+    return client.post("/api/connections/", json={
+        "project_id": project_id, "name": "Perfil", "engine": "ORACLE", "host": "oracle.local",
+        "port": 1521, "service_name": "FREEPDB1", "username": "u", "environment_type": environment_type,
+    }).json()["id"]
+
+
 @patch("app.services.execution_service.TargetDatabaseExecutor.execute_query")
 def test_13_14_15_strategy_selection_and_evidence_persistence(mock_execute_query):
     """13. Selección ROW_COUNT vs EXISTS, 14. Evidencia PASS/FAIL/ERROR, 15. Persistencia de rollback_applied."""
     p_id = client.post("/api/projects/", json={"name": "Proyecto Strategies"}).json()["id"]
+    conn_id = _crear_perfil(p_id)
 
     # Case 1: ROW_COUNT
     tc1 = client.post("/api/test-cases/", json={
@@ -249,12 +257,12 @@ def test_13_14_15_strategy_selection_and_evidence_persistence(mock_execute_query
         "rollback_error": None
     }
 
-    res1 = client.post(f"/api/execute/test-case/{tc1}", json={"dsn": "h/s", "user": "u", "password": "p"})
+    res1 = client.post(f"/api/execute/test-case/{tc1}", json={"connection_profile_id": conn_id, "password": "p"})
     assert res1.status_code == 200
     assert res1.json()["status"] == "PASS"
     assert res1.json()["validation_type"] == "ROW_COUNT"
 
-    res2 = client.post(f"/api/execute/test-case/{tc2}", json={"dsn": "h/s", "user": "u", "password": "p"})
+    res2 = client.post(f"/api/execute/test-case/{tc2}", json={"connection_profile_id": conn_id, "password": "p"})
     assert res2.status_code == 200
     assert res2.json()["status"] == "PASS"
     assert res2.json()["validation_type"] == "EXISTS"
@@ -271,6 +279,7 @@ def test_16_history_query_and_filters():
 def test_17_suite_execution_with_summary(mock_execute_query):
     """17. Ejecución de suite con varios casos y resumen coherente."""
     p_id = client.post("/api/projects/", json={"name": "Proyecto Suite Exec"}).json()["id"]
+    conn_id = _crear_perfil(p_id)
 
     c1 = client.post("/api/test-cases/", json={"project_id": p_id, "name": "C1", "sql_query": "SELECT 1", "expected_result": "1"}).json()["id"]
     c2 = client.post("/api/test-cases/", json={"project_id": p_id, "name": "C2", "sql_query": "SELECT 2", "expected_result": "1"}).json()["id"]
@@ -290,7 +299,7 @@ def test_17_suite_execution_with_summary(mock_execute_query):
         "rollback_error": None
     }
 
-    exec_res = client.post(f"/api/execute/suite/{suite_id}", json={"dsn": "h/s", "user": "u", "password": "p"})
+    exec_res = client.post(f"/api/execute/suite/{suite_id}", json={"connection_profile_id": conn_id, "password": "p"})
     assert exec_res.status_code == 200
     summary = exec_res.json()
     assert summary["total_tests"] == 2

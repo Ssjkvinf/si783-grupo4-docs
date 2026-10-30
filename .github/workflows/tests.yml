@@ -6,11 +6,19 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   test:
     runs-on: ubuntu-latest
     defaults:
       run:
+        shell: bash
         working-directory: ./framework-pruebas-sql
     steps:
     - uses: actions/checkout@v4
@@ -24,7 +32,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements.txt -r requirements-dev.txt
 
     - name: Check pip packages
       run: python -m pip check
@@ -37,10 +45,26 @@ jobs:
         alembic upgrade head
 
     - name: Run normal tests (1st pass)
-      run: pytest -q -m "not oracle_integration"
+      run: pytest -q -m "not oracle_integration" --junitxml=../reportes/pytest.xml
 
     - name: Run normal tests (2nd pass)
       run: pytest -q -m "not oracle_integration"
+
+    - name: Reporte de pruebas (resumen y artefacto)
+      if: always()
+      run: |
+        if [ -f ../reportes/pytest.xml ]; then
+          python scripts/reports/junit_to_md.py --junit ../reportes/pytest.xml --out ../reportes/reporte_pruebas.md \
+            --title "Pruebas superadas (sin Oracle)" | tee -a "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: reporte-pruebas
+        path: reportes/
+        if-no-files-found: ignore
+        retention-days: 30
 
     - name: Test Docker build
       run: docker build -t sql-qa-framework:latest .

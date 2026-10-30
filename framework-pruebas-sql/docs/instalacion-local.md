@@ -1,7 +1,7 @@
 # Instalación Local
 
 ## Requisitos
-- Python 3.9+
+- Python 3.11 (versión con la que se ejecutaron las pruebas locales). La imagen Docker y GitHub Actions usan 3.12, que **no se probó en local**; otras versiones no se comprobaron
 - Motor de Base de Datos SQLite (Incluido) o Cliente de Oracle DB.
 
 ## Instrucciones

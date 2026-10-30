@@ -1,0 +1,118 @@
+name: Documentación (generar)
+
+# EJECUTA scripts/docs/gen_docs.py en el ejecutor de GitHub y genera, desde el código del repositorio:
+# el bloque generado del README, el diccionario de datos, los diagramas ER / clases / componentes / despliegue,
+# la tabla de endpoints, la cobertura de docstrings y las páginas de referencia (clases, métodos, propiedades).
+# Luego (1) sube todo eso como ARTEFACTO, (2) escribe un RESUMEN en el job y (3) VERIFICA que lo versionado coincide
+# con lo generado: falla si hay desfase. No usa secretos, ni Azure, ni Oracle.
+#
+# Sin commit ni push (permisos de solo lectura): por eso no puede dispararse a sí mismo. Política única: los archivos
+# generados SE VERSIONAN y quien cambie modelos, endpoints, infraestructura, frontend o pruebas ejecuta antes
+# `python scripts/docs/gen_docs.py` y sube el resultado en el mismo PR. Si el flujo falla, el artefacto «documentacion-generada»
+# trae exactamente lo que habría que subir.
+# ESTE FLUJO NO SE HA EJECUTADO EN GITHUB (solo se probó el script en local y la sintaxis del archivo).
+
+on:
+  pull_request:
+    paths:
+      - "framework-pruebas-sql/app/**"
+      - "framework-pruebas-sql/alembic/**"
+      - "framework-pruebas-sql/tests/**"
+      - "framework-pruebas-sql/frontend/**"
+      - "framework-pruebas-sql/infra/**"
+      - "framework-pruebas-sql/scripts/docs/**"
+      - "framework-pruebas-sql/docs/**"
+      - "framework-pruebas-sql/README.md"
+      - ".github/workflows/**"
+  push:
+    branches: [ "main" ]
+    paths:
+      - "framework-pruebas-sql/app/**"
+      - "framework-pruebas-sql/alembic/**"
+      - "framework-pruebas-sql/tests/**"
+      - "framework-pruebas-sql/frontend/**"
+      - "framework-pruebas-sql/infra/**"
+      - "framework-pruebas-sql/scripts/docs/**"
+      - "framework-pruebas-sql/docs/**"
+      - "framework-pruebas-sql/README.md"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+concurrency:
+  group: docs-generate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+    working-directory: ./framework-pruebas-sql
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            framework-pruebas-sql/requirements.txt
+            framework-pruebas-sql/requirements-docs.txt
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-docs.txt
+
+      - name: Generar la documentación desde el código
+        run: |
+          mkdir -p ../reportes
+          python scripts/docs/gen_docs.py | tee ../reportes/generacion.txt
+
+      - name: Reunir lo generado para el artefacto
+        run: |
+          mkdir -p ../reportes/documentacion
+          cp ../reportes/generacion.txt ../reportes/documentacion/
+          cp README.md mkdocs.yml ../reportes/documentacion/
+          cp -r docs/generated docs/diagramas docs/referencia ../reportes/documentacion/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: documentacion-generada
+          path: reportes/documentacion/
+          retention-days: 14
+
+      - name: Resumen del job
+        if: always()
+        run: |
+          {
+            echo "## Documentación generada desde el código"
+            echo
+            echo '```'
+            cat ../reportes/generacion.txt 2>/dev/null || echo "(la generación no produjo salida)"
+            echo '```'
+            echo
+            echo "| Carpeta | Archivos generados |"
+            echo "| --- | --- |"
+            echo "| docs/generated (diccionario, endpoints, diagramas, cobertura) | $(find docs/generated -type f 2>/dev/null | wc -l) |"
+            echo "| docs/diagramas (.mermaid) | $(find docs/diagramas -name '*.mermaid' 2>/dev/null | wc -l) |"
+            echo "| docs/referencia (una página por módulo) | $(find docs/referencia -type f 2>/dev/null | wc -l) |"
+            echo
+            echo "### Diferencias entre lo generado y lo versionado"
+            echo
+            cambios="$(git -C .. status --porcelain -- framework-pruebas-sql/docs framework-pruebas-sql/README.md framework-pruebas-sql/mkdocs.yml)"
+            if [ -z "$cambios" ]; then echo "Ninguna: lo versionado coincide con lo generado."; else echo '```'; echo "$cambios"; echo '```'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verificar que lo versionado coincide con lo generado
+        run: |
+          cambios="$(git -C .. status --porcelain -- framework-pruebas-sql/docs framework-pruebas-sql/README.md framework-pruebas-sql/mkdocs.yml)"
+          if [ -n "$cambios" ]; then
+            echo "::error::La documentación versionada no coincide con la generada desde el código. Ejecute 'python scripts/docs/gen_docs.py' y suba el resultado (el artefacto «documentacion-generada» trae los archivos)."
+            echo "$cambios"
+            exit 1
+          fi
+          python scripts/docs/gen_docs.py --check

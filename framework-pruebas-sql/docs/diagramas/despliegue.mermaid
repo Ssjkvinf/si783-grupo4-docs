@@ -1,16 +1,37 @@
-graph TD
-    subgraph Localhost / Docker Engine
-        subgraph Contenedores Principales
-            App[FastAPI QA Framework]
-            UI[Archivos Estáticos UI]
-            DB_Local[(Volumen: framework_data)]
-        end
-        subgraph Base de Datos Target
-            Oracle[(Contenedor: oracle_db)]
-        end
+%% GENERADO por scripts/docs/gen_docs.py. No editar a mano.
+%% Leído de infra/production/compose.yml, infra/terraform/*.tf y .github/workflows/*.yml (no verifica que exista en Azure).
+flowchart TB
+    user(["Persona usuaria (navegador)"])
+    subgraph VM["Máquina virtual Linux (Docker Compose: infra/production/compose.yml)"]
+        api["api<br/>sql-qa-framework:latest"]
+        caddy["caddy<br/>caddy:2-alpine<br/>puertos 80:80, 443:443"]
+        oracle_db["oracle_db<br/>container-registry.oracle.com/database/free"]
     end
-
-    Client[Navegador Web] -- HTTP :8000 --> App
-    App -- Lee --> UI
-    App -- Lee/Escribe --> DB_Local
-    App -- oracledb TCP :1521 --> Oracle
+    vol_framework_data[("volumen framework_data")]
+    api --- vol_framework_data
+    vol_oracle_data[("volumen oracle_data")]
+    oracle_db --- vol_oracle_data
+    user -->|"HTTPS 443"| caddy
+    caddy -->|"proxy a api:8000"| api
+    api -->|"oracledb"| oracle_db
+    api -->|"SQLAlchemy"| vol_framework_data
+    subgraph TF["Terraform (infra/terraform/)"]
+        tf_budget_tf["budget.tf<br/>resource azurerm_consumption_budget_resource_group.monthly"]
+        tf_main_tf["main.tf<br/>data azurerm_resource_group.existing<br/>data azurerm_virtual_machine.existing"]
+        tf_storage_tf["storage.tf<br/>resource azurerm_storage_account.backups<br/>resource azurerm_storage_container.backups<br/>resource azurerm_storage_management_policy.backups"]
+        tf_vm_new_tf["vm_new.tf<br/>resource azurerm_resource_group.new<br/>resource azurerm_virtual_network.new<br/>resource azurerm_subnet.new<br/>resource azurerm_public_ip.new<br/>resource azurerm_network_security_group.new<br/>resource azurerm_subnet_network_security_group_association.new<br/>resource azurerm_network_interface.new<br/>resource azurerm_linux_virtual_machine.new"]
+    end
+    subgraph GH["GitHub Actions (.github/workflows/)"]
+        wf_backup_yml["backup.yml<br/>schedule,workflow_dispatch"]
+        wf_db_objects_yml["db-objects.yml<br/>pull_request,push,workflow_dispatch"]
+        wf_deploy_yml["deploy.yml<br/>workflow_call,workflow_dispatch"]
+        wf_docs_generate_yml["docs-generate.yml<br/>pull_request,push,workflow_dispatch"]
+        wf_docs_yml["docs.yml<br/>pull_request,push"]
+        wf_infra_yml["infra.yml<br/>pull_request,push,workflow_dispatch"]
+        wf_pages_yml["pages.yml<br/>pull_request,push,workflow_dispatch"]
+        wf_release_yml["release.yml<br/>workflow_dispatch"]
+        wf_sql_checks_yml["sql-checks.yml<br/>pull_request,workflow_call,workflow_dispatch"]
+        wf_tests_yml["tests.yml<br/>pull_request,push"]
+    end
+    TF -.->|"gestiona/consulta"| VM
+    GH -.->|"construye, prueba, despliega"| VM

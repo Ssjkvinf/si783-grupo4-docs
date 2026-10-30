@@ -1,17 +1,168 @@
-name: Deploy to Production
+name: Despliegue
+
+# Despliega (o revierte) una imagen versionada de GHCR en la VM EXISTENTE de Azure.
+# Solo se ejecuta A MANO (o desde release.yml con deploy=true): un push nunca despliega.
+# El entorno «azure-production» debe tener «Required reviewers»: otra persona aprueba antes de que se toque la VM.
+#
+# deploy   : copia consistente previa de la SQLite -> docker pull -> recrea SOLO el servicio api -> prueba de salud
+#            -> si falla, REVERSIÓN automática a la imagen anterior.
+# rollback : vuelve a la imagen anterior registrada (o a la indicada en image_tag).
+# La VM, Oracle, Caddy y los volúmenes no se recrean. Revertir la imagen no revierte los datos (ver el manual).
+# Guía: framework-pruebas-sql/docs/operacion-fase3.md
 
 on:
   workflow_dispatch:
+    inputs:
+      action:
+        description: "deploy | rollback"
+        required: true
+        default: deploy
+        type: choice
+        options: [deploy, rollback]
+      image_tag:
+        description: "Versión a desplegar (p. ej. v1.0.0). En rollback es opcional: vacío = la imagen anterior registrada"
+        required: false
+        default: ""
+        type: string
+      skip_backup:
+        description: "Omitir la copia previa (NO recomendado)"
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      action:
+        required: false
+        default: deploy
+        type: string
+      image_tag:
+        required: false
+        default: ""
+        type: string
+      skip_backup:
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   deploy:
+    name: ${{ inputs.action == 'rollback' && 'Revertir' || 'Desplegar' }} en la VM
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./framework-pruebas-sql
+    environment: azure-production
+    env:
+      VM_HOST: ${{ secrets.VM_HOST }}
+      VM_USER: ${{ secrets.VM_USER }}
+      APP_DIR: ${{ vars.VM_APP_DIR }}
+      ACTION: ${{ inputs.action }}
+      IMAGE_TAG: ${{ inputs.image_tag }}
+      SKIP_BACKUP: ${{ inputs.skip_backup && '1' || '0' }}
     steps:
-    - name: Blocked Deploy Notice
-      run: |
-        echo "DEPLOYMENT BLOCKED: Requiere configuración de servidor, dominio y secretos."
-        echo "Una vez proporcionados, habilitar SSH o el mecanismo correspondiente aquí."
-        exit 1
+      - uses: actions/checkout@v4
+
+      - name: Comprobar configuración (si falta algo, se detiene sin tocar la VM)
+        env:
+          FALTA_SECRETOS: ${{ (secrets.VM_HOST == '' || secrets.VM_USER == '' || secrets.VM_SSH_KEY == '' || secrets.VM_SSH_KNOWN_HOSTS == '') && 'si' || 'no' }}
+          FALTA_VARS: ${{ (vars.VM_APP_DIR == '') && 'si' || 'no' }}
+        run: |
+          fallo=0
+          if [ "$FALTA_SECRETOS" = "si" ]; then echo "::error::Faltan secretos: VM_HOST, VM_USER, VM_SSH_KEY y VM_SSH_KNOWN_HOSTS (entorno azure-production)."; fallo=1; fi
+          if [ "$FALTA_VARS" = "si" ]; then echo "::error::Falta la variable VM_APP_DIR (carpeta de la VM con compose.yml y .env.production)."; fallo=1; fi
+          if [ "$ACTION" = "deploy" ] && [ -z "$IMAGE_TAG" ]; then echo "::error::Indique image_tag (p. ej. v1.0.0) para desplegar."; fallo=1; fi
+          if [ "$fallo" = "1" ]; then echo "## ⛔ Despliegue NO realizado: configuración incompleta" >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+
+      - name: Calcular la imagen
+        id: img
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}/framework-pruebas-sql"
+          if [ -n "$IMAGE_TAG" ]; then echo "ref=$image:$IMAGE_TAG" >> "$GITHUB_OUTPUT"; else echo "ref=" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Preparar SSH (llave en secreto; clave del servidor fijada)
+        env:
+          SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.VM_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host vm\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/id_deploy\n  StrictHostKeyChecking yes\n  IdentitiesOnly yes\n' "$VM_HOST" "$VM_USER" > ~/.ssh/config
+
+      - name: Copiar los scripts y la capa de compose a la VM
+        run: |
+          REMOTE_DIR="/tmp/framework-deploy-${{ github.run_id }}"
+          echo "REMOTE_DIR=$REMOTE_DIR" >> "$GITHUB_ENV"
+          ssh vm "mkdir -p $REMOTE_DIR"
+          scp framework-pruebas-sql/scripts/deploy/deploy_remote.sh framework-pruebas-sql/scripts/deploy/rollback_remote.sh \
+              framework-pruebas-sql/scripts/backup/backup_vm.sh framework-pruebas-sql/scripts/backup/sqlite_backup.py "vm:$REMOTE_DIR/"
+          scp framework-pruebas-sql/scripts/deploy/compose.release.yml "vm:$APP_DIR/compose.release.yml"
+
+      - name: Desplegar (copia previa, descarga, recrear api, salud, reversión automática)
+        if: inputs.action != 'rollback'
+        env:
+          API_IMAGE: ${{ steps.img.outputs.ref }}
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh vm "cat > $REMOTE_DIR/.ghcr_token && chmod 600 $REMOTE_DIR/.ghcr_token"
+          ssh vm "APP_DIR='$APP_DIR' API_IMAGE='$API_IMAGE' GHCR_USER='$GHCR_USER' SKIP_BACKUP='$SKIP_BACKUP' \
+            GHCR_TOKEN=\"\$(cat $REMOTE_DIR/.ghcr_token)\" bash $REMOTE_DIR/deploy_remote.sh" | tee despliegue.log
+
+      - name: Revertir
+        if: inputs.action == 'rollback'
+        env:
+          ROLLBACK_IMAGE: ${{ steps.img.outputs.ref }}
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh vm "cat > $REMOTE_DIR/.ghcr_token && chmod 600 $REMOTE_DIR/.ghcr_token"
+          ssh vm "APP_DIR='$APP_DIR' ROLLBACK_IMAGE='$ROLLBACK_IMAGE' GHCR_USER='$GHCR_USER' \
+            GHCR_TOKEN=\"\$(cat $REMOTE_DIR/.ghcr_token)\" bash $REMOTE_DIR/rollback_remote.sh" | tee despliegue.log
+
+      - name: Prueba de salud desde fuera (URL pública)
+        if: vars.APP_PUBLIC_URL != ''
+        run: |
+          for i in $(seq 1 10); do
+            code="$(curl -s -o salud.json -w '%{http_code}' "${{ vars.APP_PUBLIC_URL }}/health" || true)"
+            if [ "$code" = "200" ]; then echo "Salud pública OK:"; cat salud.json; echo; exit 0; fi
+            sleep 6
+          done
+          echo "::error::${{ vars.APP_PUBLIC_URL }}/health no respondió 200 (último código: $code)"; exit 1
+
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "## Resultado de la acción: $ACTION"
+            echo
+            echo "- Imagen solicitada: \`${{ steps.img.outputs.ref || '(la anterior registrada)' }}\`"
+            echo "- Estado del job: **${{ job.status }}**"
+            echo "- Prueba de salud pública: ${{ vars.APP_PUBLIC_URL != '' && 'ejecutada (ver el paso)' || 'omitida (define APP_PUBLIC_URL para activarla)' }}"
+            echo
+            echo "Si el despliegue falló, el script de la VM intentó la reversión automática y dejó un reporte JSON en la VM (carpeta de releases)."
+            echo "Recuerde: revertir la imagen no revierte los datos; la copia previa está en la VM (y en Azure Blob si se subió)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: log-${{ inputs.action }}
+          path: despliegue.log
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Limpiar la VM y el runner
+        if: always()
+        run: |
+          [ -n "${REMOTE_DIR:-}" ] && ssh vm "rm -rf $REMOTE_DIR" || true
+          rm -f ~/.ssh/id_deploy

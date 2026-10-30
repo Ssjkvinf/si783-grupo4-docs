@@ -1,0 +1,329 @@
+name: Infraestructura (Terraform)
+
+# Qué hace este flujo
+#   - En push/PR que tocan la infraestructura: SOLO valida (fmt, validate, tflint) y corre las pruebas.
+#     No usa secretos de Azure y no crea nada.
+#   - Manual (workflow_dispatch):
+#       validate  -> solo validación
+#       plan      -> plan contra Azure (necesita los secretos/variables de docs/operacion-fase3.md) + reportes de costos
+#       apply     -> plan + (tras aprobación en el entorno «azure-apply») aplica EXACTAMENTE ese plan revisado
+#   - Nunca hay `destroy`. Un plan que elimine o reemplace algo (o toque una VM) se bloquea.
+# Guía paso a paso: framework-pruebas-sql/docs/operacion-fase3.md
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "framework-pruebas-sql/infra/terraform/**"
+      - "framework-pruebas-sql/scripts/costs/**"
+      - "framework-pruebas-sql/scripts/reports/**"
+      - ".github/workflows/infra.yml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "framework-pruebas-sql/infra/terraform/**"
+      - "framework-pruebas-sql/scripts/costs/**"
+      - "framework-pruebas-sql/scripts/reports/**"
+      - ".github/workflows/infra.yml"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "validate (sin Azure) | plan (lee Azure, no cambia nada) | apply (aplica el plan tras aprobación)"
+        required: true
+        default: plan
+        type: choice
+        options: [validate, plan, apply]
+      confirm_apply:
+        description: "Para action=apply escriba APPLY"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TERRAFORM_VERSION: "1.9.8"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # ------------------------------------------------------------------ 1. Validación (sin secretos)
+  validate:
+    name: Validar Terraform
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: framework-pruebas-sql/infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform fmt -check
+        id: fmt
+        run: terraform fmt -check -diff -recursive
+
+      - name: terraform init (sin backend)
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        id: validate
+        run: terraform validate
+
+      # Plan simulado (mock_provider, sin Azure ni credenciales): la configuración por defecto solo lee la VM existente
+      # y crea el almacenamiento de copias; una VM nueva exige confirmación explícita. Ver infra/terraform/tests/.
+      - name: terraform test (proveedor simulado)
+        id: tftest
+        run: terraform test -no-color
+
+      - uses: terraform-linters/setup-tflint@v4
+        continue-on-error: true
+      - name: tflint (informativo)
+        continue-on-error: true
+        run: |
+          tflint --init
+          tflint --format compact
+
+      - name: Resumen de la validación
+        if: always()
+        run: |
+          {
+            echo "## Validación de Terraform"
+            echo
+            echo "| Comprobación | Resultado |"
+            echo "| --- | --- |"
+            echo "| terraform fmt -check | ${{ steps.fmt.outcome }} |"
+            echo "| terraform validate | ${{ steps.validate.outcome }} |"
+            echo "| terraform test (plan simulado: no toca la VM) | ${{ steps.tftest.outcome }} |"
+            echo
+            echo "Esta validación **no usa Azure ni credenciales**: comprueba sintaxis y reglas de las variables, no el estado real de la nube."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ------------------------------------------------------------------ 2. Pruebas (reporte de pruebas superadas)
+  tests:
+    name: Pruebas de la aplicación y de los scripts
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: framework-pruebas-sql
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: pytest (sin Oracle)
+        run: python -m pytest -q -m "not oracle_integration" --junitxml=../reportes/pytest.xml
+
+      - name: Reporte de pruebas
+        if: always()
+        run: |
+          python scripts/reports/junit_to_md.py --junit ../reportes/pytest.xml --out ../reportes/reporte_pruebas.md \
+            --title "Pruebas superadas (sin Oracle)" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-pruebas-infra
+          path: reportes/
+          retention-days: 30
+
+  # ------------------------------------------------------------------ 3. Plan (manual, usa Azure en modo lectura)
+  plan:
+    name: Plan de Terraform y reportes
+    if: github.event_name == 'workflow_dispatch' && (inputs.action == 'plan' || inputs.action == 'apply')
+    needs: [validate, tests]
+    runs-on: ubuntu-latest
+    environment: azure-plan
+    outputs:
+      plan_ok: ${{ steps.report.outputs.plan_ok }}
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      TF_VAR_existing_resource_group_name: ${{ vars.AZURE_RESOURCE_GROUP }}
+      TF_VAR_existing_vm_name: ${{ vars.AZURE_VM_NAME }}
+      TF_VAR_existing_vm_size: ${{ vars.AZURE_VM_SIZE }}
+      TF_VAR_backup_storage_account_name: ${{ vars.BACKUP_STORAGE_ACCOUNT }}
+      TF_VAR_backup_retention_days: ${{ vars.BACKUP_RETENTION_DAYS || '30' }}
+      # Presupuesto opcional (solo alertas por correo): sin BUDGET_AMOUNT o sin BUDGET_ALERT_EMAILS no se crea.
+      TF_VAR_budget_amount: ${{ vars.BUDGET_AMOUNT || '0' }}
+      TF_VAR_budget_alert_emails: ${{ vars.BUDGET_ALERT_EMAILS || '[]' }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: framework-pruebas-sql/infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Comprobar que están los secretos y variables (no se fabrica un plan)
+        working-directory: .
+        env:
+          FALTAN_SECRETOS: ${{ (secrets.ARM_CLIENT_ID == '' || secrets.ARM_CLIENT_SECRET == '' || secrets.ARM_TENANT_ID == '' || secrets.ARM_SUBSCRIPTION_ID == '') && 'si' || 'no' }}
+          FALTAN_VARIABLES: ${{ (vars.AZURE_RESOURCE_GROUP == '' || vars.AZURE_VM_NAME == '' || vars.BACKUP_STORAGE_ACCOUNT == '' || vars.TFSTATE_RESOURCE_GROUP == '' || vars.TFSTATE_STORAGE_ACCOUNT == '' || vars.TFSTATE_CONTAINER == '') && 'si' || 'no' }}
+        run: |
+          fallo=0
+          if [ "$FALTAN_SECRETOS" = "si" ]; then
+            echo "::error::Faltan secretos de Azure. Configure ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID y ARM_SUBSCRIPTION_ID (Settings > Secrets and variables > Actions, entorno azure-plan)."
+            fallo=1
+          fi
+          if [ "$FALTAN_VARIABLES" = "si" ]; then
+            echo "::error::Faltan variables. Configure AZURE_RESOURCE_GROUP, AZURE_VM_NAME, BACKUP_STORAGE_ACCOUNT, TFSTATE_RESOURCE_GROUP, TFSTATE_STORAGE_ACCOUNT y TFSTATE_CONTAINER."
+            fallo=1
+          fi
+          if [ "$fallo" = "1" ]; then
+            {
+              echo "## ⛔ Plan NO generado"
+              echo
+              echo "Faltan secretos o variables de configuración (ver los errores del paso). **No se produjo ningún plan ni reporte de costos.**"
+              echo "Guía: framework-pruebas-sql/docs/operacion-fase3.md, sección «Configurar GitHub»."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform init (backend remoto en Azure Storage)
+        run: >
+          terraform init
+          -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}"
+          -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}"
+          -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}"
+          -backend-config="key=framework-pruebas-sql.tfstate"
+
+      - name: terraform plan
+        run: terraform plan -input=false -lock-timeout=120s -out=tfplan | tee plan.txt
+
+      - name: Exportar el plan a JSON
+        run: terraform show -json tfplan > tfplan.json
+
+      - name: Reporte del plan (bloquea eliminaciones, reemplazos y cambios de VM)
+        id: report
+        working-directory: framework-pruebas-sql
+        run: |
+          mkdir -p ../reportes
+          set +e
+          python3 scripts/reports/terraform_plan_report.py --plan infra/terraform/tfplan.json --out ../reportes/reporte_plan.md \
+            --fmt "correcto (job validate)" --validate "correcto (job validate)"
+          codigo=$?
+          set -e
+          cat ../reportes/reporte_plan.md >> "$GITHUB_STEP_SUMMARY"
+          if [ "$codigo" = "0" ]; then echo "plan_ok=true" >> "$GITHUB_OUTPUT"; else echo "plan_ok=false" >> "$GITHUB_OUTPUT"; fi
+          exit "$codigo"
+
+      - name: Gasto real del grupo de recursos (opcional)
+        if: vars.COST_REAL_ENABLED == 'true'
+        continue-on-error: true
+        working-directory: framework-pruebas-sql
+        run: |
+          # Requiere el rol «Cost Management Reader» (o Reader) de la identidad sobre el grupo de recursos.
+          az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID" --output none
+          az rest --method post \
+            --url "https://management.azure.com/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${{ vars.AZURE_RESOURCE_GROUP }}/providers/Microsoft.CostManagement/query?api-version=2023-03-01" \
+            --body '{"type":"ActualCost","timeframe":"MonthToDate","dataset":{"granularity":"None","aggregation":{"totalCost":{"name":"Cost","function":"Sum"}}}}' \
+            > ../reportes/costos_reales.json
+
+      - name: Reporte de costos (ESTIMADO) — precios de lista de Azure
+        if: always() && steps.report.outcome != 'skipped'
+        working-directory: framework-pruebas-sql
+        run: |
+          args=(--plan infra/terraform/tfplan.json --out-dir ../reportes/costos)
+          # La VM existente solo se estima si el equipo declara su tamaño Y su región; no se supone ninguna región.
+          if [ -n "${{ vars.AZURE_VM_SIZE }}" ] && [ -n "${{ vars.AZURE_LOCATION }}" ]; then
+            args+=(--existing-vm-size "${{ vars.AZURE_VM_SIZE }}" --existing-vm-location "${{ vars.AZURE_LOCATION }}")
+          else
+            echo "::warning::VM existente sin estimar: defina las variables AZURE_VM_SIZE y AZURE_LOCATION."
+          fi
+          [ -f ../reportes/costos_reales.json ] && args+=(--real-costs ../reportes/costos_reales.json)
+          python3 scripts/costs/estimate_costs.py "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terraform-plan
+          path: |
+            framework-pruebas-sql/infra/terraform/tfplan
+            framework-pruebas-sql/infra/terraform/plan.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reportes-terraform
+          path: reportes/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # ------------------------------------------------------------------ 4. Apply (manual + aprobación + plan revisado)
+  apply:
+    name: Aplicar el plan revisado
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply' && inputs.confirm_apply == 'APPLY' && needs.plan.outputs.plan_ok == 'true'
+    needs: plan
+    runs-on: ubuntu-latest
+    # El entorno «azure-apply» debe tener «Required reviewers»: nadie aplica sin que otra persona apruebe tras ver el plan.
+    environment: azure-apply
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: framework-pruebas-sql/infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan
+          path: framework-pruebas-sql/infra/terraform
+
+      - name: terraform init
+        run: >
+          terraform init
+          -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}"
+          -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}"
+          -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}"
+          -backend-config="key=framework-pruebas-sql.tfstate"
+
+      # Se aplica el archivo del plan ya revisado; si el estado de Azure cambió desde entonces, Terraform lo rechaza.
+      - name: terraform apply del plan revisado
+        run: terraform apply -input=false tfplan
+
+      - name: Salidas
+        run: |
+          {
+            echo "## Terraform apply completado"
+            echo
+            echo '```'
+            terraform output
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,162 @@
+name: Comprobaciones SQL (CLI + Excel)
+
+# INTEGRACIÓN CON GITHUB ACTIONS: ejecuta comprobaciones SQL versionadas en el repositorio y conserva el reporte.
+#
+#   Excel versionado (checks/*.xlsx)  ->  importación con validaciones  ->  ejecución con la CLI
+#   contra un Oracle DESECHABLE  ->  código de salida (0 = todo PASS)  ->  reporte en el resumen del job + artefactos
+#   (reporte Markdown, JUnit, JSON y los resultados en Excel)
+#
+# Qué demuestra: cambiar un caso es cambiar el Excel en una Pull Request; la PR falla si una regla da FAIL o ERROR.
+# No usa secretos ni toca Azure: el Oracle y la base interna (SQLite) se crean dentro del job y se descartan.
+# Reutilizable desde otro flujo con `uses: ./.github/workflows/sql-checks.yml`.
+# Guía: framework-pruebas-sql/docs/integraciones-fase4.md
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "framework-pruebas-sql/checks/**"
+      - "framework-pruebas-sql/app/cli.py"
+      - "framework-pruebas-sql/app/services/excel_io.py"
+      - "framework-pruebas-sql/scripts/ci/**"
+      - "framework-pruebas-sql/scripts/db/**"
+      - ".github/workflows/sql-checks.yml"
+  workflow_dispatch:
+    inputs:
+      checks_file:
+        description: "Excel con los casos (ruta desde la raíz del repositorio)"
+        required: false
+        default: "framework-pruebas-sql/checks/reglas_demo.xlsx"
+        type: string
+      suite:
+        description: "Suite a ejecutar (debe existir en el Excel, columna Suites)"
+        required: false
+        default: "Reglas de calidad (demo)"
+        type: string
+      provocar_dato_invalido:
+        description: "DEMOSTRACIÓN: antes de ejecutar pone ACTIVE=7 en un producto; la regla debe dar FAIL y el job fallar"
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      checks_file:
+        required: false
+        default: "framework-pruebas-sql/checks/reglas_demo.xlsx"
+        type: string
+      suite:
+        required: false
+        default: "Reglas de calidad (demo)"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sql-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  ORACLE_CI_IMAGE: gvenzl/oracle-free:23-slim-faststart
+  LIQUIBASE_IMAGE: liquibase/liquibase:4.33
+  CHECKS_FILE: ${{ inputs.checks_file || 'framework-pruebas-sql/checks/reglas_demo.xlsx' }}
+  SUITE: ${{ inputs.suite || 'Reglas de calidad (demo)' }}
+
+jobs:
+  sql-checks:
+    name: Ejecutar las comprobaciones y guardar el reporte
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: framework-pruebas-sql/requirements.txt
+      - name: Instalar dependencias
+        working-directory: framework-pruebas-sql
+        run: python -m pip install -r requirements.txt
+
+      - name: Contraseñas efímeras (se enmascaran y no se guardan)
+        run: |
+          sys_pwd="Sy$(openssl rand -hex 8)9a"
+          app_pwd="Ap$(openssl rand -hex 8)9a"
+          echo "::add-mask::$sys_pwd"
+          echo "::add-mask::$app_pwd"
+          echo "ORACLE_SYS_PWD=$sys_pwd" >> "$GITHUB_ENV"
+          echo "FRAMEWORK_TEST_PASSWORD=$app_pwd" >> "$GITHUB_ENV"
+
+      - name: Levantar un Oracle desechable
+        run: |
+          docker network create fw_chk_net
+          docker run -d --name fw_chk_oracle --network fw_chk_net -p 127.0.0.1:1521:1521 \
+            -e ORACLE_PASSWORD="$ORACLE_SYS_PWD" -e APP_USER=FRAMEWORK_TEST -e APP_USER_PASSWORD="$FRAMEWORK_TEST_PASSWORD" \
+            "$ORACLE_CI_IMAGE"
+          # Espera con un inicio de sesión real (el contenedor no define healthcheck); diagnóstico si falla. 900 s por defecto.
+          bash framework-pruebas-sql/scripts/ci/wait_for_oracle.sh fw_chk_oracle
+
+      - name: Crear la tabla y los datos de demostración (Liquibase)
+        working-directory: framework-pruebas-sql
+        env:
+          LB_NETWORK: fw_chk_net
+          LB_JDBC_URL: jdbc:oracle:thin:@//fw_chk_oracle:1521/FREEPDB1
+          LB_USER: FRAMEWORK_TEST
+          LB_PASSWORD: ${{ env.FRAMEWORK_TEST_PASSWORD }}
+        run: |
+          docker exec -i -e ORACLE_SYS_PWD fw_chk_oracle bash -c 'sqlplus -s "sys/${ORACLE_SYS_PWD}@//localhost:1521/FREEPDB1 as sysdba"' < infra/oracle/liquibase/grant_migration_privileges.sql
+          bash scripts/db/liquibase_demo.sh ../reportes/sql_checks/liquibase_logs
+
+      - name: DEMOSTRACIÓN — provocar un dato inválido
+        if: inputs.provocar_dato_invalido == true
+        run: |
+          printf '%s\n' "UPDATE FRAMEWORK_TEST_ITEMS SET ACTIVE = 7 WHERE ID = 4;" "COMMIT;" "EXIT" \
+            | docker exec -i -e FRAMEWORK_TEST_PASSWORD fw_chk_oracle bash -c 'sqlplus -s "FRAMEWORK_TEST/${FRAMEWORK_TEST_PASSWORD}@//localhost:1521/FREEPDB1"'
+
+      - name: Importar el Excel con validaciones y ejecutar con la CLI
+        id: run
+        working-directory: framework-pruebas-sql
+        env:
+          FRAMEWORK_DB_URL: sqlite:///./checks_ci.sqlite          # base interna desechable del job
+          FW_ORACLE_PASSWORD: ${{ env.FRAMEWORK_TEST_PASSWORD }}   # la CLI la lee del entorno; nunca como argumento
+        run: |
+          mkdir -p ../reportes/sql_checks
+          python -m app.cli init-db
+          python -m app.cli import-excel "../$CHECKS_FILE" --project "CI" --create-project
+          set +e
+          python -m app.cli run --project "CI" --suite "$SUITE" \
+            --host 127.0.0.1 --port 1521 --service FREEPDB1 --user FRAMEWORK_TEST --env TEST \
+            --junit ../reportes/sql_checks/sql_checks.xml --markdown ../reportes/sql_checks/sql_checks.md --json ../reportes/sql_checks/sql_checks.json
+          codigo=$?
+          set -e
+          cat ../reportes/sql_checks/sql_checks.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          python -m app.cli export-excel results --project "CI" --out ../reportes/sql_checks/resultados.xlsx --force || true
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+          exit "$codigo"
+
+      - name: Resumen del código de salida
+        if: always()
+        run: |
+          {
+            echo
+            echo "**Código de salida de la CLI:** \`${{ steps.run.outputs.codigo || 'no se llegó a ejecutar' }}\` (0 = todo PASS · 1 = hay FAIL · 2 = hay ERROR · 3 = uso/configuración inválidos · 4 = sin casos)."
+            echo "El Excel de entrada es \`$CHECKS_FILE\`; los resultados quedan en el artefacto *reporte-sql-checks*."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Limpieza del Oracle desechable
+        if: always()
+        run: |
+          docker rm -f fw_chk_oracle >/dev/null 2>&1 || true
+          docker network rm fw_chk_net >/dev/null 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-sql-checks
+          path: reportes/sql_checks/
+          if-no-files-found: ignore
+          retention-days: 30

@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 import oracledb
 from dotenv import load_dotenv
+from oracle_guard import destructive_skip_reason
 
 load_dotenv(".env.oracle")
 
@@ -11,12 +12,17 @@ load_dotenv(".env.oracle")
 run_oracle = os.getenv("RUN_ORACLE_TESTS", "0") == "1"
 test_password = os.getenv("FRAMEWORK_TEST_PASSWORD", "").strip()
 
-pytestmark = pytest.mark.skipif(
-    not run_oracle or not test_password,
-    reason="Pruebas Oracle desactivadas. Requiere RUN_ORACLE_TESTS=1 y FRAMEWORK_TEST_PASSWORD"
-)
-
 ORACLE_HOST = os.getenv("ORACLE_HOST", "127.0.0.1")
+# Estas pruebas BORRAN filas de FRAMEWORK_TEST_ITEMS: solo corren contra un Oracle local o de CI (ver tests/oracle_guard.py).
+_guard = destructive_skip_reason(ORACLE_HOST)
+
+pytestmark = [
+    pytest.mark.skipif(
+        not run_oracle or not test_password,
+        reason="Pruebas Oracle desactivadas. Requiere RUN_ORACLE_TESTS=1 y FRAMEWORK_TEST_PASSWORD"
+    ),
+    pytest.mark.skipif(_guard is not None, reason=_guard or ""),
+]
 ORACLE_PORT = int(os.getenv("ORACLE_PORT", "1521"))
 ORACLE_SERVICE = os.getenv("ORACLE_SERVICE", "FREEPDB1")
 ORACLE_USER = os.getenv("ORACLE_TEST_USER", "FRAMEWORK_TEST")
@@ -377,35 +383,37 @@ def test_5_4_suite_real():
     assert suite_historial[0]["suite_id"] == suite_id
 
 @pytest.mark.oracle_integration
-def test_direct_credentials_treated_as_production():
-    """Verifica que si se envían credenciales directas, el ambiente es PRODUCTION y se aplican bloqueos y ofuscación."""
+def test_production_profile_hides_rows_and_blocks_dml():
+    """
+    Un perfil PRODUCTION bloquea DML y oculta filas y errores ORA.
+    (Antes se probaba con un dsn libre; esa vía se eliminó: solo se ejecuta con perfiles guardados.)
+    """
+    proj_id = client.post("/api/projects/", json={"name": "Proyecto PRODUCTION raw"}).json()["id"]
+    prof = client.post("/api/connections/", json={
+        "name": "Perfil PRODUCTION", "engine": "ORACLE", "host": ORACLE_HOST, "port": ORACLE_PORT,
+        "service_name": ORACLE_SERVICE, "username": ORACLE_USER, "environment_type": "PRODUCTION",
+        "project_id": proj_id})
+    assert prof.status_code == 201
+    cred = {"connection_profile_id": prof.json()["id"], "password": ORACLE_PWD}
+
     # Intentar DELETE (DML bloqueado)
-    res_del = client.post("/api/execute/raw", json={
-        "dsn": f"{ORACLE_HOST}:{ORACLE_PORT}/{ORACLE_SERVICE}",
-        "user": ORACLE_USER,
-        "password": ORACLE_PWD,
-        "sql_query": "DELETE FROM FRAMEWORK_TEST_ITEMS WHERE ID = 1"
-    })
+    res_del = client.post("/api/execute/raw", json={**cred, "sql_query": "DELETE FROM FRAMEWORK_TEST_ITEMS WHERE ID = 1"})
     assert res_del.status_code == 400
     assert "En producción solo se permiten sentencias SELECT" in res_del.json()["detail"]
 
     # Intentar SELECT (Filas ocultas)
-    res_sel = client.post("/api/execute/raw", json={
-        "dsn": f"{ORACLE_HOST}:{ORACLE_PORT}/{ORACLE_SERVICE}",
-        "user": ORACLE_USER,
-        "password": ORACLE_PWD,
-        "sql_query": "SELECT * FROM FRAMEWORK_TEST_ITEMS"
-    })
+    res_sel = client.post("/api/execute/raw", json={**cred, "sql_query": "SELECT * FROM FRAMEWORK_TEST_ITEMS"})
     assert res_sel.status_code == 200
     assert res_sel.json()["data"] == []
 
     # Intentar SQL Inválido (Errores ORA ocultos)
-    res_err = client.post("/api/execute/raw", json={
-        "dsn": f"{ORACLE_HOST}:{ORACLE_PORT}/{ORACLE_SERVICE}",
-        "user": ORACLE_USER,
-        "password": ORACLE_PWD,
-        "sql_query": "SELECT * FROM TABLA_INEXISTENTE_PROD"
-    })
+    res_err = client.post("/api/execute/raw", json={**cred, "sql_query": "SELECT * FROM TABLA_INEXISTENTE_PROD"})
     assert res_err.status_code == 400
     assert "Error oculto por políticas de seguridad (PRODUCTION)" in res_err.json()["detail"]
     assert "ORA-" not in res_err.json()["detail"]
+
+    # Y un dsn libre ya no existe como vía de entrada
+    libre = client.post("/api/execute/raw", json={
+        "dsn": f"{ORACLE_HOST}:{ORACLE_PORT}/{ORACLE_SERVICE}", "user": ORACLE_USER, "password": ORACLE_PWD,
+        "sql_query": "SELECT 1 FROM DUAL"})
+    assert libre.status_code == 422

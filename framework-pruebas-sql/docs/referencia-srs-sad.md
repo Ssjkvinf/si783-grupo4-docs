@@ -4,8 +4,8 @@
 El **Framework de Pruebas de Base de Datos SQL** es un entorno diseñado para evaluar, gestionar y automatizar la ejecución de sentencias SQL (específicamente DML: INSERT, UPDATE, DELETE) contra una base de datos Oracle, aplicando validaciones de resultados (ROW_COUNT, EXISTS) de forma segura y garantizando que toda operación modificadora desencadene un ROLLBACK.
 
 ## 2. Actores Reales
-- **Tester / Analista QA**: Usuario principal, encargado de configurar los perfiles de conexión, redactar los casos de prueba y ejecutar las suites.
-- **Administrador**: Puede gestionar la infraestructura general y credenciales de acceso global (`APP_ACCESS_USERNAME` y `APP_ACCESS_PASSWORD`).
+- **Tester / Analista QA** (rol `TESTER`): usuario principal; redacta casos, arma suites, las ejecuta con las conexiones existentes y revisa el historial. Puede solicitar su cuenta desde la pantalla de ingreso.
+- **Administrador** (rol `ADMIN`): aprueba cuentas, asigna roles y contraseñas, y gestiona proyectos y perfiles de conexión. El primero se crea con `APP_ACCESS_USERNAME` / `APP_ACCESS_PASSWORD` (ver `docs/seguridad.md`).
 
 ## 3. Módulos Funcionales
 1. **Gestión de Proyectos**: Agrupador lógico superior para conexiones y pruebas.

@@ -1,0 +1,90 @@
+%% GENERADO por scripts/docs/gen_docs.py. No editar a mano.
+%% Clases ORM de la base interna SQLite (app/models)
+classDiagram
+    class Project {
+        +Integer id
+        +String name
+        +String description
+        +DateTime created_at
+        +DateTime updated_at
+    }
+    class ConnectionProfile {
+        +Integer id
+        +Integer project_id
+        +String name
+        +String engine
+        +String host
+        +Integer port
+        +String service_name
+        +String username
+        +String environment_type
+        +DateTime created_at
+        +DateTime updated_at
+    }
+    class TestCase {
+        +Integer id
+        +Integer project_id
+        +String name
+        +String description
+        +Text sql_query
+        +String expected_result
+        +String validation_type
+        +DateTime created_at
+        +DateTime updated_at
+    }
+    class TestSuite {
+        +Integer id
+        +Integer project_id
+        +String name
+        +String description
+        +DateTime created_at
+        +DateTime updated_at
+    }
+    class ExecutionHistory {
+        +Integer id
+        +Integer project_id
+        +Integer test_case_id
+        +Integer suite_id
+        +Integer connection_profile_id
+        +String status
+        +DateTime executed_at
+        +Float duration_ms
+        +String statement_type
+        +Text executed_sql
+        +String validation_type
+        +String expected_result
+        +Text actual_result
+        +Integer rowcount
+        +Boolean rollback_applied
+        +Text rollback_error
+        +Text error_message
+        +String trigger_source
+        +String run_id
+        +String executed_by
+        +case_name()
+        +suite_name()
+        +connection_name()
+    }
+    class UsageEvent {
+        +Integer id
+        +String event_type
+        +Integer project_id
+        +String source
+        +String detail
+        +DateTime created_at
+    }
+    Project --> TestCase : test_cases
+    Project --> TestSuite : test_suites
+    Project --> ConnectionProfile : connection_profiles
+    Project --> ExecutionHistory : execution_histories
+    ConnectionProfile --> Project : project
+    ConnectionProfile --> ExecutionHistory : execution_histories
+    TestCase --> Project : project
+    TestCase --> ExecutionHistory : execution_histories
+    TestSuite --> Project : project
+    TestSuite --> TestCase : test_cases
+    TestSuite --> ExecutionHistory : execution_histories
+    ExecutionHistory --> Project : project
+    ExecutionHistory --> TestCase : test_case
+    ExecutionHistory --> TestSuite : test_suite
+    ExecutionHistory --> ConnectionProfile : connection_profile

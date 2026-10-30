@@ -38,7 +38,7 @@ export async function actualizarDatosProyectoActivo() {
         return;
     }
     const activeLink = document.querySelector(".nav-link-custom.active");
-    const activeSection = activeLink ? activeLink.getAttribute("data-section") : "dashboard";
+    const activeSection = activeLink ? activeLink.getAttribute("data-section") : "inicio";
     try {
         const hist = await fetchAPI(`/history/?project_id=${estado.proyectoActivoId}&limit=100`);
         let p = 0, f = 0, er = 0;

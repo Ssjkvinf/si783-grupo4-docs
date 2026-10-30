@@ -4,7 +4,9 @@ Implementa el Patrón Strategy para evaluar dinámicamente los resultados
 de la ejecución SQL contra los criterios esperados.
 """
 from abc import ABC, abstractmethod
-from typing import Any, List, Dict, Union
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
+from typing import Any, List, Dict, Optional, Tuple, Union
 
 class ValidationStrategy(ABC):
     """Interfaz base que define el contrato para cualquier regla de validación."""
@@ -94,3 +96,54 @@ class ValidationContext:
     def execute_validation(self, execution_data: Any, expected_value: str) -> bool:
         """Ejecuta la evaluación utilizando la estrategia actual."""
         return self._strategy.evaluate(execution_data, expected_value)
+
+
+# --- Valor escalar -------------------------------------------------------------------------
+# ROW_COUNT cuenta las FILAS que devuelve la consulta (un COUNT(*) siempre devuelve 1 fila).
+# SCALAR_VALUE compara el VALOR de la primera columna de la única fila devuelta
+# (por ejemplo, el número que calcula un COUNT(*)).
+
+def format_scalar(value: Any) -> str:
+    """Texto estable de un valor escalar (sin notación científica ni ceros sobrantes)."""
+    if value is None:
+        return "NULL"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, Decimal)) or (isinstance(value, float) and value == value):
+        try:
+            dec = Decimal(str(value))
+            text = format(dec.normalize(), "f") if dec == dec.to_integral() else format(dec.normalize(), "f")
+            return "0" if text in ("-0", "") else text
+        except (InvalidOperation, ValueError):
+            return str(value)
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value).strip()
+
+
+def scalar_equals(value: Any, expected: str) -> bool:
+    """Compara numéricamente si ambos son números; en otro caso, como texto exacto."""
+    expected = str(expected).strip()
+    if value is None:
+        return expected.upper() == "NULL"
+    try:
+        return Decimal(str(value)) == Decimal(expected)
+    except (InvalidOperation, ValueError):
+        return format_scalar(value) == expected
+
+
+class ScalarValueValidation(ValidationStrategy):
+    """
+    Valida el valor de la primera columna de la ÚNICA fila devuelta por un SELECT.
+    No supera la validación si la consulta falla, devuelve 0 filas o más de una fila.
+    """
+
+    def evaluate(self, execution_data: Any, expected_value: str) -> bool:
+        if not isinstance(execution_data, dict) or not execution_data.get("success", False):
+            return False
+        if str(execution_data.get("statement_type", "")).upper() != "SELECT":
+            return False
+        rows = execution_data.get("rows") or []
+        if len(rows) != 1 or not rows[0]:
+            return False
+        return scalar_equals(rows[0][0], expected_value)

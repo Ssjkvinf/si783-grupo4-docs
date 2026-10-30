@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import pytest
 from fastapi.testclient import TestClient
@@ -12,7 +13,7 @@ def run_alembic(db_path, cmd):
     env = os.environ.copy()
     env["FRAMEWORK_DB_URL"] = f"sqlite:///{db_path}"
     # Run alembic
-    res = subprocess.run(["alembic"] + cmd, env=env, capture_output=True, text=True)
+    res = subprocess.run([sys.executable, "-m", "alembic"] + cmd, env=env, capture_output=True, text=True)
     return res
 
 def test_migration_empty_db():
@@ -40,7 +41,7 @@ def test_migration_empty_db():
         # Check alembic_version
         cursor.execute("SELECT version_num FROM alembic_version")
         version = cursor.fetchone()[0]
-        assert version == "d10691d55c95"
+        assert version == "a4b8c2d9e1f0"
         
         cursor.close()
         conn.close()
@@ -61,8 +62,10 @@ import os
 os.environ['FRAMEWORK_DB_URL'] = 'sqlite:///{db_path.replace(chr(92), '/')}'
 from app.main import app
 """
-        res = subprocess.run(["python", "-c", script], env=env, capture_output=True, text=True)
-        assert res.returncode == 0
+        # sys.executable: el intérprete que ejecuta pytest (el del venv). "python" a secas lo resuelve
+        # el sistema operativo y en Windows puede ser otro intérprete sin las dependencias.
+        res = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True)
+        assert res.returncode == 0, res.stderr
         
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()

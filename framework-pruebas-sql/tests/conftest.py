@@ -8,6 +8,8 @@ import os
 # Configurar variable de entorno para la base de datos de pruebas en memoria ANTES de las importaciones
 os.environ["FRAMEWORK_DB_URL"] = "sqlite:///:memory:"
 os.environ["APP_ACCESS_ENABLED"] = "false"
+# Hash de contraseñas más rápido en las pruebas (en producción se usan 260 000 iteraciones).
+os.environ.setdefault("PASSWORD_HASH_ITERATIONS", "2000")
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -15,6 +17,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from app.core.database import Base, get_db
 from app.main import app
+from app.security.auth import limite_por_ip
+from app.api.users import limite_registro
 
 # Retener la variable test_engine antigua sólo por compatibilidad global si algún test lo importa directamente
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -54,6 +58,9 @@ def setup_isolated_db():
             db.close()
             
     app.dependency_overrides[get_db] = override_get_db
+    # Los límites de intentos viven en memoria: cada prueba empieza sin fallos acumulados.
+    limite_por_ip.reiniciar()
+    limite_registro.reiniciar()
     
     # Update the global TestingSessionLocal and test_engine for tests that import them directly
     global TestingSessionLocal, test_engine

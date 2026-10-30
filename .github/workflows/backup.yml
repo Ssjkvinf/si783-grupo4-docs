@@ -1,0 +1,149 @@
+name: Copia de seguridad de la SQLite
+
+# Qué hace
+#   1. Por SSH, en la VM: copia CONSISTENTE de la SQLite (API de respaldo; no copia el archivo en uso ni detiene la app).
+#   2. Trae a este job el manifiesto, el reporte y la copia; comprueba el hash.
+#   3. RESTAURA la copia en una carpeta aislada del runner y verifica que se puede leer (integridad, filas, datos).
+#   4. Sube la copia a un contenedor PRIVADO de Azure Blob Storage (si está configurado) y guarda los reportes como artefacto.
+#
+# Datos sensibles: la copia contiene proyectos, perfiles de conexión (sin contraseñas), SQL e historial. Por eso la copia
+# NO se publica como artefacto de GitHub (los artefactos pueden ser visibles para quien lea el repositorio): solo se guardan
+# los reportes (conteos, tamaño y hash; sin datos). La copia va a Azure Blob (privado) o se queda en la VM.
+#
+# Manual por defecto. La programación diaria solo corre si define la variable de repositorio BACKUP_SCHEDULE_ENABLED=true.
+# Guía: framework-pruebas-sql/docs/operacion-fase3.md
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_to_blob:
+        description: "Subir la copia a Azure Blob Storage (requiere BACKUP_STORAGE_ACCOUNT y el rol de escritura)"
+        required: false
+        default: true
+        type: boolean
+  schedule:
+    - cron: "17 7 * * *"   # 07:17 UTC (02:17 en Lima/Tacna); solo actúa si BACKUP_SCHEDULE_ENABLED == 'true'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-sqlite
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  backup:
+    name: Copia, restauración verificada y almacenamiento
+    if: github.event_name == 'workflow_dispatch' || vars.BACKUP_SCHEDULE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: azure-backup
+    env:
+      VM_HOST: ${{ secrets.VM_HOST }}
+      VM_USER: ${{ secrets.VM_USER }}
+      BACKUP_DIR_VM: ${{ vars.VM_BACKUP_DIR || '/opt/framework/backups' }}
+      APP_VOLUME: ${{ vars.APP_DATA_VOLUME || 'framework_pruebas_sql_framework_data' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Comprobar secretos (si faltan, el flujo se detiene con un mensaje claro)
+        env:
+          FALTA: ${{ (secrets.VM_HOST == '' || secrets.VM_USER == '' || secrets.VM_SSH_KEY == '' || secrets.VM_SSH_KNOWN_HOSTS == '') && 'si' || 'no' }}
+        run: |
+          if [ "$FALTA" = "si" ]; then
+            echo "::error::Faltan secretos de la VM: VM_HOST, VM_USER, VM_SSH_KEY y VM_SSH_KNOWN_HOSTS (entorno azure-backup)."
+            echo "## ⛔ Copia NO realizada: faltan secretos de la VM" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preparar SSH (la llave vive solo en el secreto; clave del servidor fijada, sin confiar en el primer contacto)
+        env:
+          SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.VM_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host vm\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/id_deploy\n  StrictHostKeyChecking yes\n  IdentitiesOnly yes\n' "$VM_HOST" "$VM_USER" > ~/.ssh/config
+
+      - name: Copiar los scripts a la VM
+        run: |
+          REMOTE_DIR="/tmp/framework-backup-${{ github.run_id }}"
+          echo "REMOTE_DIR=$REMOTE_DIR" >> "$GITHUB_ENV"
+          ssh vm "mkdir -p $REMOTE_DIR"
+          scp framework-pruebas-sql/scripts/backup/backup_vm.sh framework-pruebas-sql/scripts/backup/sqlite_backup.py "vm:$REMOTE_DIR/"
+
+      - name: Copia consistente en la VM
+        run: |
+          ssh vm "APP_VOLUME='$APP_VOLUME' BACKUP_DIR='$BACKUP_DIR_VM' bash $REMOTE_DIR/backup_vm.sh" | tee copia_en_vm.log
+
+      - name: Traer la copia y sus reportes
+        run: |
+          mkdir -p trabajo/copia reportes
+          ultimo="$(ssh vm "ls -1t '$BACKUP_DIR_VM'/framework_interno_*.sqlite.gz | head -n 1")"
+          base="${ultimo%.sqlite.gz}"
+          scp "vm:$ultimo" "vm:$base.manifest.json" "vm:$base.reporte.md" trabajo/copia/
+          echo "COPIA=$(basename "$ultimo")" >> "$GITHUB_ENV"
+          cp trabajo/copia/*.reporte.md reportes/reporte_copia.md
+          cp trabajo/copia/*.manifest.json reportes/
+          cat reportes/reporte_copia.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Restaurar en una carpeta aislada y verificar (la base de la VM no se toca)
+        run: |
+          base="trabajo/copia/${COPIA%.sqlite.gz}"
+          python framework-pruebas-sql/scripts/backup/sqlite_restore_verify.py \
+            --backup "trabajo/copia/$COPIA" --manifest "$base.manifest.json" \
+            --work-dir trabajo/restauracion --report reportes/reporte_restauracion.md | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Subir la copia a Azure Blob Storage (contenedor privado)
+        if: (github.event_name != 'workflow_dispatch' || inputs.upload_to_blob) && vars.BACKUP_STORAGE_ACCOUNT != ''
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+        run: |
+          az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" --output none
+          destino="${{ vars.BACKUP_CONTAINER || 'sqlite-backups' }}"
+          for f in "trabajo/copia/$COPIA" "trabajo/copia/${COPIA%.sqlite.gz}.manifest.json"; do
+            az storage blob upload --auth-mode login --account-name "${{ vars.BACKUP_STORAGE_ACCOUNT }}" \
+              --container-name "$destino" --name "$(basename "$f")" --file "$f" --no-overwrite --output none
+          done
+          echo "Subida a https://${{ vars.BACKUP_STORAGE_ACCOUNT }}.blob.core.windows.net/$destino/ (contenedor privado)" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "BLOB_SUBIDO=si" >> "$GITHUB_ENV"
+
+      - name: Dónde quedó la copia
+        if: always()
+        run: |
+          {
+            echo
+            echo "## Ubicación de la copia"
+            echo "- En la VM: \`$BACKUP_DIR_VM/${COPIA:-<no creada>}\` (se conservan las 14 más recientes)."
+            if [ "${BLOB_SUBIDO:-no}" = "si" ]; then
+              echo "- En Azure Blob Storage: **subida** (cuenta \`${{ vars.BACKUP_STORAGE_ACCOUNT }}\`, contenedor privado; retención por política de ciclo de vida)."
+            else
+              echo "- En Azure Blob Storage: **no se subió en esta ejecución** (falta BACKUP_STORAGE_ACCOUNT, se desactivó la subida o el paso falló). La copia solo está en la VM."
+            fi
+            echo "- GitHub: solo los reportes (sin datos). La copia no se publica como artefacto."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reportes-copia-sqlite
+          path: reportes/
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Limpiar la VM y el runner
+        if: always()
+        run: |
+          [ -n "${REMOTE_DIR:-}" ] && ssh vm "rm -rf $REMOTE_DIR" || true
+          rm -rf trabajo ~/.ssh/id_deploy
