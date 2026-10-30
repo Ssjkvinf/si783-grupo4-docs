@@ -235,7 +235,7 @@ def test_usuario_inexistente_cuesta_lo_mismo_que_uno_real(monkeypatch):
 
 
 def test_produccion_confia_solo_en_caddy_para_la_ip_del_visitante():
-    import yaml
+    yaml = pytest.importorskip("yaml")
     from pathlib import Path
     compose = yaml.safe_load(Path("infra/production/compose.yml").read_text(encoding="utf-8"))
     api = compose["services"]["api"]

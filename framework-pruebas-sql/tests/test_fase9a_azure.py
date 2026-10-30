@@ -79,7 +79,7 @@ def test_terraform_test_si_hay_binario_y_proveedor_ya_descargado():
 
 
 def test_produccion_cierra_el_registro_por_defecto():
-    import yaml
+    yaml = pytest.importorskip("yaml")
     api = yaml.safe_load((ROOT / "infra" / "production" / "compose.yml").read_text(encoding="utf-8"))["services"]["api"]
     assert "APP_REGISTRATION_ENABLED=${APP_REGISTRATION_ENABLED:-false}" in api["environment"]
     ejemplo = (ROOT / "infra" / "production" / ".env.production.example").read_text(encoding="utf-8")
