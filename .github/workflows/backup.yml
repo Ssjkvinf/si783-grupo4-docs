@@ -114,7 +114,7 @@ jobs:
           destino="${{ vars.BACKUP_CONTAINER || 'sqlite-backups' }}"
           for f in "trabajo/copia/$COPIA" "trabajo/copia/${COPIA%.sqlite.gz}.manifest.json"; do
             az storage blob upload --auth-mode login --account-name "${{ vars.BACKUP_STORAGE_ACCOUNT }}" \
-              --container-name "$destino" --name "$(basename "$f")" --file "$f" --no-overwrite --output none
+              --container-name "$destino" --name "$(basename "$f")" --file "$f" --overwrite false --output none
           done
           echo "Subida a https://${{ vars.BACKUP_STORAGE_ACCOUNT }}.blob.core.windows.net/$destino/ (contenedor privado)" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "BLOB_SUBIDO=si" >> "$GITHUB_ENV"
