@@ -65,6 +65,12 @@ variable "backup_storage_account_name" {
   }
 }
 
+variable "backup_location" {
+  description = "Región de la cuenta de copias. Vacío = la del grupo de recursos. Las suscripciones de estudiante solo permiten algunas regiones (p. ej. la de la VM)."
+  type        = string
+  default     = ""
+}
+
 variable "backup_container_name" {
   description = "Contenedor privado de blobs para las copias."
   type        = string

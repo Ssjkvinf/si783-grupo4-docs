@@ -546,7 +546,8 @@ def test_backup_programado_solo_actua_si_se_habilita_y_no_publica_la_copia_como_
     assert "BACKUP_SCHEDULE_ENABLED == 'true'" in t
     artefactos = re.findall(r"upload-artifact@v4\s+if:[^\n]*\n\s+with:\s+name:[^\n]*\n\s+path:\s*([^\n]+)", t)
     assert artefactos and all(".sqlite" not in a and "trabajo" not in a for a in artefactos), artefactos
-    assert "--auth-mode login" in t and "--no-overwrite" in t
+    # La CLI de Azure no tiene --no-overwrite (falló en Actions: «unrecognized arguments»); la forma válida es --overwrite false.
+    assert "--auth-mode login" in t and "--overwrite false" in t and "--no-overwrite" not in t
 
 
 def test_workflows_sin_secretos_incrustados_y_credenciales_solo_por_contexto_secrets():

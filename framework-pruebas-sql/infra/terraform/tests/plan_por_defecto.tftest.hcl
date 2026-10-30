@@ -61,6 +61,23 @@ run "por_defecto_lee_la_vm_y_solo_crea_el_almacenamiento_de_copias" {
   }
 }
 
+run "la_cuenta_de_copias_puede_ir_a_otra_region_del_mismo_grupo" {
+  command = plan
+
+  variables {
+    backup_location = "westus3"
+  }
+
+  assert {
+    condition     = azurerm_storage_account.backups[0].location == "westus3" && azurerm_storage_account.backups[0].resource_group_name == "rg-existente-ficticio"
+    error_message = "Con backup_location la cuenta debe crearse en esa región, dentro del grupo existente."
+  }
+  assert {
+    condition     = length(azurerm_linux_virtual_machine.new) == 0
+    error_message = "Cambiar la región de las copias no debe traer una VM."
+  }
+}
+
 run "presupuesto_opcional_sobre_el_grupo_existente" {
   command = plan
 

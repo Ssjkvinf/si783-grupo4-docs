@@ -119,7 +119,8 @@ Variables (*Settings → Secrets and variables → Actions → Variables*, a niv
 | Variable | Obligatoria para | Valor |
 | --- | --- | --- |
 | `AZURE_RESOURCE_GROUP`, `AZURE_VM_NAME` | Plan | `<GRUPO>`, `<VM>` |
-| `AZURE_VM_SIZE`, `AZURE_LOCATION` | Estimación de la VM (opcional) | Tamaño y región de B2 |
+| `AZURE_VM_SIZE`, `AZURE_LOCATION` | Estimación de la VM; `AZURE_LOCATION` también es la región de la cuenta de copias | Tamaño y región **de la VM** (B2). Las suscripciones de estudiante bloquean algunas regiones (`RequestDisallowedByAzure`); la de la VM está permitida |
+| `BACKUP_LOCATION` | Opcional | Otra región permitida para las copias (si no, se usa `AZURE_LOCATION`) |
 | `BACKUP_STORAGE_ACCOUNT` | Plan y copia | `<CUENTA_COPIAS>` (nueva; Terraform la crea) |
 | `BACKUP_RETENTION_DAYS`, `BACKUP_CONTAINER` | Opcional | `30`, `sqlite-backups` |
 | `TFSTATE_RESOURCE_GROUP`, `TFSTATE_STORAGE_ACCOUNT`, `TFSTATE_CONTAINER` | Plan y apply | `<GRUPO>`, `<CUENTA_ESTADO>`, `tfstate` |

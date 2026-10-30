@@ -13,7 +13,7 @@ resource "azurerm_storage_account" "backups" {
 
   name                = var.backup_storage_account_name
   resource_group_name = local.support_resource_group_name
-  location            = local.support_location
+  location            = var.backup_location != "" ? var.backup_location : local.support_location
 
   account_kind             = "StorageV2"
   account_tier             = "Standard"
