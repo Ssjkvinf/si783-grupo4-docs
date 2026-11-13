@@ -20,4 +20,4 @@ class TestCase(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     project = relationship("Project", back_populates="test_cases")
-    execution_histories = relationship("ExecutionHistory", back_populates="test_case")
+    execution_histories = relationship("ExecutionHistory", back_populates="test_case", passive_deletes="all")   # la base impide borrar lo que tiene historial (409); el ORM no debe poner a NULL su clave

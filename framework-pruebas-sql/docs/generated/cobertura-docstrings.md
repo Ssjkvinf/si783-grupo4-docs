@@ -21,6 +21,7 @@ Cuenta lo que existe en cada módulo y cuánto tiene docstring. **Documentada** 
 | `app.api.users` | sí | 0/7 | 10/10 | 0/0 | 0/24 | 0 | 24 |
 | `app.cli` | sí | 1/1 | 0/8 | 0/0 | 0/0 | 0 | 0 |
 | `app.core.database` | **no** | 0/0 | 0/2 | 0/0 | 0/0 | 0 | 0 |
+| `app.core.logs` | sí | 0/0 | 2/3 | 0/0 | 0/0 | 0 | 0 |
 | `app.engine.executor` | sí | 1/1 | 0/0 | 3/3 | 0/6 | 0 | 6 |
 | `app.engine.validator` | sí | 5/5 | 2/2 | 3/6 | 0/0 | 0 | 0 |
 | `app.main` | **no** | 0/0 | 1/4 | 0/0 | 0/0 | 0 | 0 |
@@ -46,7 +47,7 @@ Cuenta lo que existe en cada módulo y cuánto tiene docstring. **Documentada** 
 | `app.services.rule_templates` | sí | 1/1 | 2/2 | 0/0 | 0/0 | 0 | 0 |
 | `app.services.usage_service` | sí | 0/0 | 1/2 | 0/0 | 0/0 | 0 | 0 |
 | `app.services.validacion_auto` | sí | 0/0 | 2/2 | 0/0 | 0/0 | 0 | 0 |
-| **Total** | 36/39 | 14/56 | 86/120 | 7/35 | 0/290 | 68 | 222 |
+| **Total** | 37/40 | 14/56 | 88/123 | 7/35 | 0/290 | 68 | 222 |
 
 ## Vacíos (sin docstring)
 
@@ -68,13 +69,13 @@ Cuenta lo que existe en cada módulo y cuánto tiene docstring. **Documentada** 
 | `app.api.demo` | `DemoScenarioRequest` | 24 |
 | `app.api.demo` | `GuidedDemoRequest` | 29 |
 | `app.api.rules` | `RuleBuildRequest` | 14 |
-| `app.api.users` | `LoginRequest` | 31 |
-| `app.api.users` | `RegistroRequest` | 36 |
-| `app.api.users` | `CambioContrasenaRequest` | 42 |
-| `app.api.users` | `UsuarioCrear` | 47 |
-| `app.api.users` | `UsuarioActualizar` | 54 |
-| `app.api.users` | `RestablecerRequest` | 60 |
-| `app.api.users` | `UsuarioResponse` | 64 |
+| `app.api.users` | `LoginRequest` | 33 |
+| `app.api.users` | `RegistroRequest` | 38 |
+| `app.api.users` | `CambioContrasenaRequest` | 44 |
+| `app.api.users` | `UsuarioCrear` | 49 |
+| `app.api.users` | `UsuarioActualizar` | 56 |
+| `app.api.users` | `RestablecerRequest` | 62 |
+| `app.api.users` | `UsuarioResponse` | 66 |
 | `app.models.connection` | `ConnectionProfile` | 12 |
 | `app.models.history` | `ExecutionHistory` | 12 |
 | `app.models.project` | `Project` | 12 |
@@ -105,7 +106,7 @@ Cuenta lo que existe en cada módulo y cuánto tiene docstring. **Documentada** 
 | `app.models.usage` | `UsageEvent` | 15 |
 | `app.models.user` | `User` | 20 |
 
-### Funciones sin documentar (34)
+### Funciones sin documentar (35)
 
 | Módulo | Nombre | Línea |
 | --- | --- | --- |
@@ -121,9 +122,10 @@ Cuenta lo que existe en cada módulo y cuánto tiene docstring. **Documentada** 
 | `app.cli` | `main` | 373 |
 | `app.core.database` | `set_sqlite_pragma` | 16 |
 | `app.core.database` | `get_db` | 29 |
-| `app.main` | `get_login_page` | 99 |
-| `app.main` | `health_check` | 107 |
-| `app.main` | `read_root` | 133 |
+| `app.core.logs` | `configurar_logs` | 15 |
+| `app.main` | `get_login_page` | 106 |
+| `app.main` | `health_check` | 114 |
+| `app.main` | `read_root` | 140 |
 | `app.models.connection` | `get_utc_now` | 9 |
 | `app.models.history` | `get_utc_now` | 9 |
 | `app.models.project` | `get_utc_now` | 9 |

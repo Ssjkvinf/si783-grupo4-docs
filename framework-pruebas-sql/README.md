@@ -204,7 +204,7 @@ pytest -v -m oracle_integration
 <!-- GENERADO:inicio resumen -->
 <!-- Bloque generado por scripts/docs/gen_docs.py; no editar a mano. -->
 
-**Versión de la API:** 2.0.0 · **Operaciones HTTP documentadas (OpenAPI):** 53 · **Tablas de la base interna (SQLite):** 8 · **Archivos de prueba:** 36 · **Funciones `test_` (recuento estático; no prueba que pasen):** 392
+**Versión de la API:** 2.0.0 · **Operaciones HTTP documentadas (OpenAPI):** 53 · **Tablas de la base interna (SQLite):** 8 · **Archivos de prueba:** 38 · **Funciones `test_` (recuento estático; no prueba que pasen):** 399
 
 | Grupo de endpoints | Rutas |
 | --- | --- |

@@ -89,6 +89,7 @@ const AVISO_COUNT = 'Atención: su consulta usa COUNT(...). «Cantidad de filas�
 
 let irASeccion = null;
 let alEjecutarFn = null;   // refresca las tarjetas de «Resumen» tras ejecutar (inyectado desde app.js para evitar ciclos de importación)
+let validacionDeRegla = false;   // true mientras el tipo de comparación lo puso «Usar esta regla» y la consulta no se ha editado
 let ultimaEjecucion = null;
 let demo = null;           // { rules: {id, name}, examples: {id, name} } si las suites de demostración ya existen en el proyecto
 
@@ -105,7 +106,12 @@ export function initInicio(irA, alEjecutar) {
 
     el('inicio-conexion').addEventListener('change', actualizarAvisoEntorno);
     el('inicio-validacion').addEventListener('change', () => { actualizarCampoEsperado(); actualizarAvisoCount(); actualizarDeteccion(); });
-    el('inicio-sql').addEventListener('input', () => { actualizarAvisoCount(); actualizarDeteccion(); });
+    el('inicio-sql').addEventListener('input', () => {
+        // Si la consulta vino de una regla y la persona la edita, el tipo de comparación de la regla ya no aplica: vuelve a «Automático».
+        if (validacionDeRegla && el('inicio-validacion').value !== 'AUTO') { el('inicio-validacion').value = 'AUTO'; actualizarCampoEsperado(); }
+        validacionDeRegla = false;
+        actualizarAvisoCount(); actualizarDeteccion();
+    });
     el('inicio-esperado-auto').addEventListener('input', actualizarDeteccion);
     el('inicio-btn-usar-valor').addEventListener('click', () => {
         el('inicio-validacion').value = 'SCALAR_VALUE';
@@ -493,6 +499,7 @@ function usarRegla() {
     if (!b) return;
     el('inicio-sql').value = b.sql;
     el('inicio-validacion').value = b.validation_type;
+    validacionDeRegla = true;
     actualizarCampoEsperado();
     if (b.validation_type === 'EXISTS') el('inicio-esperado-bool').value = b.expected_result;
     else if (b.validation_type === 'SCALAR_VALUE') el('inicio-esperado-valor').value = b.expected_result;

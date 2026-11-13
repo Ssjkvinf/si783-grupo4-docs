@@ -27,4 +27,4 @@ class TestSuite(Base):
     project = relationship("Project", back_populates="test_suites")
     # Orden fijo por id de caso: una suite se ejecuta siempre en el mismo orden (importa para «INSERT y luego comprobar el conteo»).
     test_cases = relationship("TestCase", secondary=suite_test_case_table, backref="suites", order_by="TestCase.id")
-    execution_histories = relationship("ExecutionHistory", back_populates="test_suite")
+    execution_histories = relationship("ExecutionHistory", back_populates="test_suite", passive_deletes="all")   # la base impide borrar lo que tiene historial (409); el ORM no debe poner a NULL su clave

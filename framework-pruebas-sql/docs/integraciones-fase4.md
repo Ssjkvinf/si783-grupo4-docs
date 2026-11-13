@@ -79,3 +79,20 @@ Pendiente: ejecutar `sql-checks.yml` en GitHub; repetir la demostración contra 
 ## 9. Capturas que deben tomar
 
 Dashboard sin datos; dashboard con datos reales; importación con errores; importación correcta; terminal con `run` y código de salida; resumen del job y artefacto en GitHub; Excel de resultados abierto.
+
+## 6. Integración con Visual Studio Code (tareas, skill y extensión)
+
+Estado: creado y probado **en local** (pruebas estáticas y la CLI real con SQLite; no se abrió VS Code en esta verificación ni se ejecutó contra Oracle).
+
+| Pieza | Dónde | Qué hace |
+|---|---|---|
+| Tareas | `.vscode/tasks.json` | *Terminal → Ejecutar tarea*: ejecutar suite, validar/importar Excel y exportar resultados. La contraseña se pide oculta y viaja por `FW_ORACLE_PASSWORD`. |
+| Skill para agentes | `.claude/skills/comprobaciones-sql/SKILL.md` | Enseña a un agente (p. ej. Claude Code) a usar la CLI, leer los códigos de salida y respetar las reglas de seguridad (sin contraseña en comandos, solo TEST). |
+| Extensión | `vscode-extension/` (`framework-sql-qa-1.0.0.vsix`) | Comandos «SQL QA: Ejecutar suite / Importar casos desde Excel / Exportar resultados a Excel». Lanza la CLI, muestra el código de salida y abre el reporte Markdown. |
+
+Instalar la extensión: Extensiones → «⋯» → «Instalar desde VSIX…». Reconstruirla: `cd vscode-extension && npx @vscode/vsce package --no-dependencies`.
+Límite: la extensión es un lanzador de la CLI (no tiene panel propio ni lista de casos); requiere Python con las dependencias del proyecto.
+
+## 7. Logs
+
+Una línea por evento en la salida estándar (`docker logs framework_api_prod`): peticiones a `/api/*` (método, ruta, código, ms), ingresos correctos, fallidos y bloqueos, y cada ejecución de una prueba (resultado, duración, origen, usuario). **Nunca** se registran contraseñas, SQL ni resultados. Nivel con `LOG_LEVEL` (INFO por defecto). Código: `app/core/logs.py`.

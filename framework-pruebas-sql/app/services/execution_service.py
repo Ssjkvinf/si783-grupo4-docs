@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 import oracledb
 
+from app.core.logs import obtener
 from app.engine.executor import TargetDatabaseExecutor
 from app.engine.validator import (
     ValidationContext, RowCountValidation, ExistenceValidation, ScalarValueValidation, format_scalar
@@ -19,6 +20,9 @@ from app.security.target_policy import ensure_valid_target
 from app.models import test_case as models_tc
 from app.models import history as models_history
 from app.models import connection as models_conn
+
+
+log = obtener('ejecucion')
 
 
 def json_serial_helper(obj: Any) -> Any:
@@ -181,6 +185,8 @@ def run_single_test_case_execution(
     db.add(history_record)
     db.commit()
     db.refresh(history_record)
+    log.info('ejecucion historial=%s caso=%s resultado=%s ms=%.0f origen=%s usuario=%s', history_record.id, tc.id, status,
+             duration_ms, trigger_source, executed_by or '-')
 
     return history_record
 

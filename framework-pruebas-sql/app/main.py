@@ -8,7 +8,9 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import time
 from app.core.database import engine, Base, SessionLocal
+from app.core.logs import obtener as obtener_log
 from app.models import project, connection, test_case, suite, history, usage, user
 from app.api import projects, connections, test_cases, suites, executions, demo, usage as api_usage, excel as api_excel, history as api_history, rules as api_rules, users as api_users, analysis as api_analysis
 from app.security.acceso import usuario_actual
@@ -36,6 +38,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+log_http = obtener_log('http')
+
 RUTAS_PUBLICAS = {"/", "/health", "/login", "/api/login", "/api/logout", "/api/register"}
 
 CABECERAS_SEGURIDAD = {
@@ -52,7 +56,10 @@ async def cookie_auth_middleware(request: Request, call_next):
     Primera barrera: sin una cookie de sesión firmada y vigente, /api/* responde 401 y las páginas redirigen a /login.
     La segunda barrera (cuenta activa, sesión no anulada y rol) la aplica la dependencia `usuario_actual` en cada router.
     """
+    inicio = time.perf_counter()
     response = await _controlar_acceso(request, call_next)
+    if request.url.path.startswith("/api/"):
+        log_http.info("%s %s %s %.0fms", request.method, request.url.path, response.status_code, (time.perf_counter() - inicio) * 1000)
     for clave, valor in CABECERAS_SEGURIDAD.items():
         response.headers.setdefault(clave, valor)
     # La interfaz se revalida en cada carga (ETag/Last-Modified): tras un despliegue nadie se queda con JavaScript viejo.

@@ -25,4 +25,4 @@ class ConnectionProfile(Base):
     updated_at = Column(DateTime(timezone=True), default=get_utc_now, onupdate=get_utc_now)
 
     project = relationship("Project", back_populates="connection_profiles")
-    execution_histories = relationship("ExecutionHistory", back_populates="connection_profile")
+    execution_histories = relationship("ExecutionHistory", back_populates="connection_profile", passive_deletes="all")   # la base impide borrar lo que tiene historial (409); el ORM no debe poner a NULL su clave

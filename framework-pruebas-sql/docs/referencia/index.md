@@ -21,6 +21,7 @@ Clases, métodos y propiedades generados con *mkdocstrings* a partir de los docs
 | [`app.api.users`](api_users.md) | Ingreso, solicitud de cuenta y administración de usuarios. |
 | [`app.cli`](cli.md) | CLI del Framework de pruebas SQL: ejecutar casos y suites desde la terminal o desde un flujo de CI y obtener un |
 | [`app.core.database`](core_database.md) |  |
+| [`app.core.logs`](core_logs.md) | Registro (logs) de la aplicación: una línea por evento, a la salida estándar (Docker la recoge con `docker logs`). |
 | [`app.engine.executor`](engine_executor.md) | Módulo de ejecución SQL para el Framework de Pruebas. |
 | [`app.engine.validator`](engine_validator.md) | Módulo de validación para el Framework de Pruebas. |
 | [`app.main`](main.md) |  |
