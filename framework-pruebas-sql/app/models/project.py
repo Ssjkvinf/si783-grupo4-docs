@@ -21,4 +21,4 @@ class Project(Base):
     test_cases = relationship("TestCase", back_populates="project", cascade="all, delete-orphan")
     test_suites = relationship("TestSuite", back_populates="project", cascade="all, delete-orphan")
     connection_profiles = relationship("ConnectionProfile", back_populates="project", cascade="all, delete-orphan")
-    execution_histories = relationship("ExecutionHistory", back_populates="project")
+    execution_histories = relationship("ExecutionHistory", back_populates="project", passive_deletes="all")   # la base impide borrar lo que tiene historial (409); el ORM no debe poner a NULL su clave

@@ -1,0 +1,27 @@
+{
+  "name": "framework-sql-qa",
+  "displayName": "Framework SQL QA",
+  "description": "Ejecuta suites de comprobaciones SQL contra Oracle, importa casos desde Excel y exporta resultados, usando la CLI del Framework de pruebas SQL.",
+  "version": "1.0.0",
+  "publisher": "si783-grupo4",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/UPT-FAING-EPIS/si783-2026-ii-si783-2026-ii-proyecto-group-4" },
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Testing", "Other"],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      { "command": "frameworkSql.runSuite", "title": "SQL QA: Ejecutar suite" },
+      { "command": "frameworkSql.importExcel", "title": "SQL QA: Importar casos desde Excel" },
+      { "command": "frameworkSql.exportResults", "title": "SQL QA: Exportar resultados a Excel" }
+    ],
+    "configuration": {
+      "title": "Framework SQL QA",
+      "properties": {
+        "frameworkSql.python": { "type": "string", "default": "python", "description": "Comando de Python que tiene instaladas las dependencias del proyecto." },
+        "frameworkSql.appPath": { "type": "string", "default": "", "description": "Carpeta framework-pruebas-sql. Vacío = la carpeta framework-pruebas-sql del espacio de trabajo abierto." }
+      }
+    }
+  }
+}

@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.logs import limpio, obtener
 from app.models.user import User
 from app.security.acceso import COOKIE_SESION, asegurar_admin_inicial, requiere_admin, usuario_actual
 from app.security.auth import (MAX_FALLOS_CUENTA, MINUTOS_BLOQUEO, LimiteDeIntentos, crear_token, hash_password,
@@ -25,6 +26,7 @@ router = APIRouter()
 
 HORAS_SESION = 8
 # Como máximo 10 solicitudes de cuenta por IP y por hora.
+log = obtener('acceso')
 limite_registro = LimiteDeIntentos(maximo=10, ventana=3600)
 
 
@@ -131,16 +133,19 @@ def login(creds: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """Ingresa con usuario y contraseña. Bloquea la cuenta tras 5 fallos seguidos y la IP tras 20 fallos en 15 minutos."""
     ip = _ip(request)
     if limite_por_ip.bloqueada(ip):
+        log.warning('ingreso rechazado: ip bloqueada ip=%s', ip)
         return JSONResponse(status_code=429, content={"detail": "Demasiados intentos fallidos desde este equipo. Espere unos minutos."})
     asegurar_admin_inicial(db)
 
     user = db.query(User).filter(User.username == creds.username.strip()).first()
     if user and _bloqueado(user):
+        log.warning('ingreso rechazado: cuenta bloqueada usuario=%s ip=%s', limpio(creds.username), ip)
         return JSONResponse(status_code=423, content={
             "detail": f"Cuenta bloqueada temporalmente por intentos fallidos. Intente de nuevo en {MINUTOS_BLOQUEO} minutos."})
 
     if not verify_password(creds.password, user.password_hash if user else None):
         limite_por_ip.fallo(ip)
+        log.warning('ingreso fallido usuario=%s ip=%s', limpio(creds.username), ip)
         if user:
             user.failed_attempts = (user.failed_attempts or 0) + 1
             if user.failed_attempts >= MAX_FALLOS_CUENTA:
@@ -152,6 +157,7 @@ def login(creds: LoginRequest, request: Request, db: Session = Depends(get_db)):
     if not user.active:
         return JSONResponse(status_code=403, content={"detail": "Su cuenta todavía no fue aprobada por un administrador."})
 
+    log.info('ingreso correcto usuario=%s rol=%s ip=%s', user.username, user.role, ip)
     user.failed_attempts = 0
     user.locked_until = None
     user.last_login_at = _ahora()

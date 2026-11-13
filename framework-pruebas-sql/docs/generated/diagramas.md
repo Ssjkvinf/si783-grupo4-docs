@@ -526,6 +526,7 @@ flowchart LR
     app_models --> app_services
     app_security --> app_core
     app_security --> app_models
+    app_services --> app_core
     app_services --> app_engine
     app_services --> app_models
     app_services --> app_security

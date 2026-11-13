@@ -335,3 +335,24 @@ def test_20_app_startup_and_docs_available():
     res_openapi = client.get("/openapi.json")
     assert res_openapi.status_code == 200
     assert res_openapi.json()["info"]["title"] == "Framework de Pruebas SQL"
+
+
+def test_no_se_borra_un_caso_con_historial_ni_se_pierde_su_nombre():
+    """Hallazgo de la prueba P23: el ORM ponía a NULL test_case_id del historial y el borrado «funcionaba»."""
+    import conftest
+    from app.models.history import ExecutionHistory
+    caso = client.post("/api/test-cases/", json={"name": "caso con historial", "sql_query": "SELECT 1 FROM DUAL",
+                                                 "expected_result": "1", "validation_type": "ROW_COUNT"}).json()
+    db = conftest.TestingSessionLocal()
+    try:
+        db.add(ExecutionHistory(project_id=caso["project_id"], test_case_id=caso["id"], status="PASS", duration_ms=1.0,
+                                executed_sql="SELECT 1 FROM DUAL"))
+        db.commit()
+    finally:
+        db.close()
+    assert client.delete(f"/api/test-cases/{caso['id']}").status_code == 409
+    db = conftest.TestingSessionLocal()
+    try:
+        assert db.query(ExecutionHistory).filter(ExecutionHistory.test_case_id == caso["id"]).count() == 1
+    finally:
+        db.close()

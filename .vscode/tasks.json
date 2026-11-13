@@ -1,0 +1,47 @@
+{
+  // Tareas del Framework de pruebas SQL: llaman a la CLI (python -m app.cli). Menú: Terminal > Ejecutar tarea...
+  // La contraseña de Oracle se pide oculta y viaja por variable de entorno, nunca por argumento.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "SQL QA: ejecutar suite",
+      "type": "shell",
+      "command": "python -m app.cli run --project \"${input:proyecto}\" --suite \"${input:suite}\" --host ${input:host} --port ${input:puerto} --service ${input:servicio} --user ${input:usuario} --env TEST --markdown reportes/ultima.md --json reportes/ultima.json --junit reportes/ultima.xml",
+      "options": { "cwd": "${workspaceFolder}/framework-pruebas-sql", "env": { "FW_ORACLE_PASSWORD": "${input:claveOracle}" } },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "detail": "Ejecuta una suite contra Oracle. Códigos: 0 PASS, 1 FAIL, 2 ERROR, 3 uso inválido, 4 sin casos."
+    },
+    {
+      "label": "SQL QA: validar Excel de casos (sin guardar)",
+      "type": "shell",
+      "command": "python -m app.cli import-excel \"${input:archivoExcel}\" --project \"${input:proyecto}\" --create-project --dry-run",
+      "options": { "cwd": "${workspaceFolder}/framework-pruebas-sql" },
+      "problemMatcher": []
+    },
+    {
+      "label": "SQL QA: importar Excel de casos",
+      "type": "shell",
+      "command": "python -m app.cli import-excel \"${input:archivoExcel}\" --project \"${input:proyecto}\" --create-project --mode update",
+      "options": { "cwd": "${workspaceFolder}/framework-pruebas-sql" },
+      "problemMatcher": []
+    },
+    {
+      "label": "SQL QA: exportar resultados a Excel",
+      "type": "shell",
+      "command": "python -m app.cli export-excel results --project \"${input:proyecto}\" --out reportes/resultados.xlsx --force",
+      "options": { "cwd": "${workspaceFolder}/framework-pruebas-sql" },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    { "id": "proyecto", "type": "promptString", "description": "Nombre del proyecto", "default": "Demo" },
+    { "id": "suite", "type": "promptString", "description": "Nombre de la suite", "default": "Reglas de calidad (demo)" },
+    { "id": "archivoExcel", "type": "promptString", "description": "Excel de casos (ruta desde framework-pruebas-sql)", "default": "checks/reglas_demo.xlsx" },
+    { "id": "host", "type": "promptString", "description": "Host de Oracle", "default": "127.0.0.1" },
+    { "id": "puerto", "type": "promptString", "description": "Puerto", "default": "1521" },
+    { "id": "servicio", "type": "promptString", "description": "Service name", "default": "FREEPDB1" },
+    { "id": "usuario", "type": "promptString", "description": "Usuario de Oracle", "default": "FRAMEWORK_TEST" },
+    { "id": "claveOracle", "type": "promptString", "description": "Contraseña de Oracle (no se guarda)", "password": true }
+  ]
+}

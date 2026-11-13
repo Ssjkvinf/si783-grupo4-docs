@@ -89,6 +89,7 @@ nav:
       - app.api.users: referencia/api_users.md
       - app.cli: referencia/cli.md
       - app.core.database: referencia/core_database.md
+      - app.core.logs: referencia/core_logs.md
       - app.engine.executor: referencia/engine_executor.md
       - app.engine.validator: referencia/engine_validator.md
       - app.main: referencia/main.md
